@@ -1,0 +1,23 @@
+{
+  "title": "Codebase Wikis",
+  "projects": [
+    {
+      "dir": "dwarfstar-4",
+      "name": "DwarfStar 4",
+      "github": "antirez/ds4",
+      "tagline": "为深入学习 DwarfStar 4（ds4）源码而写的可查询中文参考文档——一个专为 DeepSeek V4 Flash 打造的独立推理引擎。",
+      "versions": 1,
+      "latest": "c9dd949",
+      "updated": "2026-05-18"
+    },
+    {
+      "dir": "llama-cpp",
+      "name": "llama.cpp",
+      "github": "ggml-org/llama.cpp",
+      "tagline": "为深入学习 llama.cpp 源码而写的可查询中文参考文档：从一次最简推理请求出发，逐层走完 C/C++ LLM 推理引擎。",
+      "versions": 1,
+      "latest": "b9209",
+      "updated": "2026-05-18"
+    }
+  ]
+}

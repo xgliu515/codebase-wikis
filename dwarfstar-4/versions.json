@@ -1,0 +1,13 @@
+{
+  "project": "DwarfStar 4",
+  "versions": [
+    {
+      "dir": "c9dd949",
+      "label": "c9dd949",
+      "commit": "c9dd949",
+      "target_ref": "c9dd949",
+      "date": "2026-05-18",
+      "latest": true
+    }
+  ]
+}

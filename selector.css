@@ -1,0 +1,67 @@
+/* 顶层版本选择页样式 —— 与查看器主题独立，自包含一份变量。 */
+:root {
+  --bg: #fafaf9;
+  --bg-elev: #ffffff;
+  --border: #e3dfd8;
+  --text: #1f2024;
+  --text-soft: #5b5d63;
+  --accent: #c2410c;
+  --font-sans: system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #16181d; --bg-elev: #1d2027; --border: #2e3340;
+    --text: #e8e9ec; --text-soft: #a8acb5; --accent: #fb923c;
+  }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+}
+.selector {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 64px 24px;
+}
+.selector h1 {
+  font-size: 28px;
+  margin: 0 0 4px;
+  color: var(--accent);
+}
+.selector h1 span { color: var(--text-soft); font-weight: 500; font-size: 20px; }
+.subtitle { color: var(--text-soft); margin: 0 0 32px; }
+.version-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 14px; }
+.version-card {
+  display: block;
+  padding: 18px 20px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  text-decoration: none;
+  color: inherit;
+  transition: border-color .15s, transform .15s;
+}
+.version-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+.vc-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.vc-label { font-size: 18px; font-weight: 700; }
+.vc-badge {
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  background: var(--accent);
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+.vc-meta { display: flex; flex-wrap: wrap; gap: 6px 28px; margin: 0; }
+.vc-meta div { display: flex; gap: 8px; }
+.vc-meta dt { color: var(--text-soft); font-size: 13px; margin: 0; }
+.vc-meta dd { margin: 0; font-size: 13px; font-family: monospace; }
+.empty { color: var(--text-soft); }
+.back-link { margin: 0 0 16px; font-size: 13px; }
+.back-link a { color: var(--text-soft); text-decoration: none; }
+.back-link a:hover { color: var(--accent); }
+.vc-tagline { margin: 0 0 10px; color: var(--text-soft); font-size: 13px; }

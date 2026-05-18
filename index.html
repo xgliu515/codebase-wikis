@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<!--
+  顶层项目选择页 → 复制为 mono-repo 根 index.html。
+  替换 Codebase Wikis 为站点标题。页面内容完全由同级 projects.json 驱动，
+  新增项目时本文件无需重新生成。
+-->
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Codebase Wikis — 项目选择</title>
+  <link rel="stylesheet" href="selector.css">
+</head>
+<body>
+  <main class="selector">
+    <h1>Codebase Wikis</h1>
+    <p class="subtitle">选择一个项目查看它的代码学习 wiki。</p>
+    <ul id="project-list" class="version-list"></ul>
+    <p id="empty" class="empty" hidden>未找到 projects.json，或其中没有任何项目。</p>
+  </main>
+  <script>
+    (async function () {
+      const listEl = document.getElementById('project-list');
+      const emptyEl = document.getElementById('empty');
+      try {
+        const resp = await fetch('projects.json', { cache: 'no-cache' });
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        const manifest = await resp.json();
+        const projects = Array.isArray(manifest && manifest.projects) ? manifest.projects : [];
+        if (!projects.length) { emptyEl.hidden = false; return; }
+        for (const p of projects) {
+          const li = document.createElement('li');
+          const a = document.createElement('a');
+          a.href = p.dir + '/index.html';
+          a.className = 'version-card';
+          a.innerHTML =
+            '<div class="vc-head"><span class="vc-label"></span></div>' +
+            '<p class="vc-tagline"></p>' +
+            '<dl class="vc-meta">' +
+            '<div><dt>GitHub</dt><dd class="vc-github"></dd></div>' +
+            '<div><dt>版本数</dt><dd class="vc-versions"></dd></div>' +
+            '<div><dt>最新</dt><dd class="vc-latest"></dd></div>' +
+            '<div><dt>更新</dt><dd class="vc-updated"></dd></div>' +
+            '</dl>';
+          a.querySelector('.vc-label').textContent = p.name || p.dir;
+          a.querySelector('.vc-tagline').textContent = p.tagline || '';
+          a.querySelector('.vc-github').textContent = p.github || '—';
+          a.querySelector('.vc-versions').textContent = p.versions != null ? String(p.versions) : '—';
+          a.querySelector('.vc-latest').textContent = p.latest || '—';
+          a.querySelector('.vc-updated').textContent = p.updated || '—';
+          li.appendChild(a);
+          listEl.appendChild(li);
+        }
+      } catch (err) {
+        emptyEl.hidden = false;
+        emptyEl.textContent = '加载 projects.json 失败：' + (err.message || err);
+      }
+    })();
+  </script>
+</body>
+</html>

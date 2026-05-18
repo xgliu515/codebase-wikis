@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<!--
+  This file goes to <output>/<project>/<version>/index.html (the version subdirectory, sibling of web/).
+  Replace DwarfStar 4 with the project name (e.g., "vLLM", "hermes-agent").
+-->
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DwarfStar 4 中文参考 Wiki</title>
+  <link rel="stylesheet" href="web/css/style.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.10.0/styles/atom-one-dark.min.css" id="hljs-theme">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+</head>
+<body data-theme="light">
+  <header class="topbar">
+    <div class="brand">
+      <a href="#/">DwarfStar 4<span class="brand-sub"> Wiki</span></a>
+    </div>
+    <select id="project-switcher" class="version-switcher" title="切换项目" hidden></select>
+    <select id="version-switcher" class="version-switcher" title="切换版本" hidden></select>
+    <div class="search-wrap">
+      <input id="search-input" type="search" placeholder="搜索 (按 /  聚焦)" autocomplete="off" spellcheck="false">
+      <div id="search-results" class="search-results" hidden></div>
+    </div>
+    <div class="toolbar">
+      <button id="prev-chapter" title="上一章 (k)">‹</button>
+      <button id="next-chapter" title="下一章 (j)">›</button>
+      <button id="repo-root-btn" title="源码链接模式（默认 GitHub，可切到本地 VSCode）">源码</button>
+      <button id="theme-toggle" title="切换主题 (t)">🌓</button>
+    </div>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar" id="sidebar">
+      <nav id="chapter-list"></nav>
+    </aside>
+
+    <main class="content" id="content">
+      <div class="loading">加载中…</div>
+    </main>
+
+    <aside class="rightbar" id="rightbar">
+      <div class="rightbar-title">本页目录</div>
+      <nav id="page-toc"></nav>
+    </aside>
+  </div>
+
+  <div id="diagram-modal" class="modal" hidden>
+    <div class="modal-backdrop" data-close></div>
+    <div class="modal-body">
+      <button class="modal-close" data-close>×</button>
+      <div id="modal-diagram"></div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" hidden></div>
+
+  <script type="module" src="web/js/app.js"></script>
+</body>
+</html>
