@@ -1,0 +1,13 @@
+{
+  "project": "vLLM",
+  "versions": [
+    {
+      "dir": "086749736",
+      "label": "v0.21.1rc0+35",
+      "commit": "086749736",
+      "target_ref": "v0.21.1rc0+35",
+      "date": "2026-05-17",
+      "latest": true
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "project": "hermes-agent",
+  "versions": [
+    {
+      "dir": "f36c89cd5",
+      "label": "f36c89cd5",
+      "commit": "f36c89cd5",
+      "target_ref": "f36c89cd5",
+      "date": "2026-05-17",
+      "latest": true
+    }
+  ]
+}

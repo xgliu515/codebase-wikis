@@ -18,6 +18,33 @@
       "versions": 1,
       "latest": "b9209",
       "updated": "2026-05-18"
+    },
+    {
+      "dir": "vllm",
+      "name": "vLLM",
+      "github": "vllm-project/vllm",
+      "tagline": "vLLM 源码中文参考 Wiki —— 高吞吐量 LLM 推理与服务引擎。",
+      "versions": 1,
+      "latest": "086749736",
+      "updated": "2026-05-17"
+    },
+    {
+      "dir": "sglang",
+      "name": "SGLang",
+      "github": "sgl-project/sglang",
+      "tagline": "SGLang 源码中文参考 Wiki —— 高效的 LLM 服务运行时。",
+      "versions": 1,
+      "latest": "6ccc5b807",
+      "updated": "2026-05-17"
+    },
+    {
+      "dir": "hermes-agent",
+      "name": "hermes-agent",
+      "github": "NousResearch/hermes-agent",
+      "tagline": "hermes-agent 源码中文参考 Wiki —— 智能体框架。",
+      "versions": 1,
+      "latest": "f36c89cd5",
+      "updated": "2026-05-17"
     }
   ]
 }
