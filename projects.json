@@ -2,6 +2,15 @@
   "title": "Codebase Wikis",
   "projects": [
     {
+      "dir": "openclaw",
+      "name": "OpenClaw",
+      "github": "openclaw/openclaw",
+      "tagline": "OpenClaw 源码中文参考 Wiki —— 自托管的个人 AI 助手网关，统一接入二十余种消息渠道。",
+      "versions": 1,
+      "latest": "v2026.5.18",
+      "updated": "2026-05-18"
+    },
+    {
       "dir": "dwarfstar-4",
       "name": "DwarfStar 4",
       "github": "antirez/ds4",
