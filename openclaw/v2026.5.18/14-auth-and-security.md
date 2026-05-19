@@ -103,6 +103,67 @@ const allowTailscale =
 
 把 `resolveGatewayAuth` 的「配置」和 `authorizeGatewayConnect` 的「运行时判定」连起来，整个鉴权流程是这样的：
 
+<svg viewBox="0 0 760 420" xmlns="http://www.w3.org/2000/svg" class="figure-svg" role="img" aria-label="authorizeGatewayConnect 鉴权流程：HTTP/WS 连接进来，经 authSurface 分发后按 mode 走五条分支">
+  <defs>
+    <marker id="ar5" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/></marker>
+    <marker id="ar5d" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/></marker>
+  </defs>
+  <rect x="200" y="8" width="300" height="34" rx="6" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.2"/>
+  <text x="350" y="25" text-anchor="middle" font-size="12" font-weight="600" fill="currentColor">连接进来</text>
+  <text x="350" y="37" text-anchor="middle" font-size="10" fill="#64748b">(HTTP 请求 / WS 握手)</text>
+  <line x1="350" y1="42" x2="350" y2="64" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar5)"/>
+  <rect x="180" y="66" width="340" height="42" rx="6" fill="#fed7aa" stroke="#ea580c" stroke-width="1.5"/>
+  <text x="350" y="83" text-anchor="middle" font-size="12" font-weight="700" fill="currentColor">authorizeGatewayConnect (auth.ts:400)</text>
+  <text x="350" y="100" text-anchor="middle" font-size="10" fill="#64748b">authSurface = "http" 还是 "ws-control-ui"?</text>
+  <line x1="350" y1="108" x2="350" y2="130" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar5)"/>
+  <rect x="180" y="132" width="340" height="32" rx="6" fill="#fed7aa" stroke="#ea580c" stroke-width="1.5"/>
+  <text x="350" y="153" text-anchor="middle" font-size="12" font-weight="700" fill="currentColor">authorizeGatewayConnectCore (auth.ts:435)</text>
+  <line x1="350" y1="164" x2="350" y2="184" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar5)"/>
+  <line x1="100" y1="200" x2="600" y2="200" stroke="#cbd5e1" stroke-width="1"/>
+  <line x1="140" y1="184" x2="140" y2="200" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar5)"/>
+  <line x1="240" y1="184" x2="240" y2="200" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar5)"/>
+  <line x1="350" y1="184" x2="350" y2="200" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar5)"/>
+  <line x1="460" y1="184" x2="460" y2="200" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar5)"/>
+  <line x1="570" y1="184" x2="570" y2="200" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar5)"/>
+  <line x1="140" y1="200" x2="140" y2="220" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar5)"/>
+  <line x1="240" y1="200" x2="240" y2="220" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar5)"/>
+  <line x1="350" y1="200" x2="350" y2="220" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar5)"/>
+  <line x1="460" y1="200" x2="460" y2="220" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar5)"/>
+  <line x1="570" y1="200" x2="570" y2="220" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar5)"/>
+  <rect x="64" y="222" width="154" height="52" rx="5" fill="#ddd6fe" stroke="#7c3aed" stroke-width="1.5"/>
+  <text x="141" y="239" text-anchor="middle" font-size="10" font-weight="700" fill="currentColor">trusted-proxy</text>
+  <text x="141" y="253" text-anchor="middle" font-size="9" fill="#64748b">authorizeTrustedProxy</text>
+  <text x="141" y="265" text-anchor="middle" font-size="9" fill="#64748b">IP / 必需头 / allowUsers</text>
+  <rect x="172" y="222" width="100" height="52" rx="5" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.2"/>
+  <text x="222" y="243" text-anchor="middle" font-size="10" font-weight="700" fill="currentColor">none</text>
+  <text x="222" y="259" text-anchor="middle" font-size="9" fill="#64748b">直接 ok</text>
+  <text x="222" y="272" text-anchor="middle" font-size="9" fill="#94a3b8">速率限制检查</text>
+  <rect x="276" y="222" width="148" height="52" rx="5" fill="#99f6e4" stroke="#0d9488" stroke-width="1.5"/>
+  <text x="350" y="239" text-anchor="middle" font-size="10" font-weight="700" fill="currentColor">allowTailscale</text>
+  <text x="350" y="253" text-anchor="middle" font-size="9" fill="#64748b">resolveVerifiedTailscaleUser</text>
+  <text x="350" y="266" text-anchor="middle" font-size="9" fill="#64748b">头 + whois + login 比对</text>
+  <rect x="388" y="222" width="148" height="52" rx="5" fill="#fed7aa" stroke="#ea580c" stroke-width="1.5"/>
+  <text x="462" y="239" text-anchor="middle" font-size="10" font-weight="700" fill="currentColor">token</text>
+  <text x="462" y="253" text-anchor="middle" font-size="9" fill="#64748b">authorizeTokenAuth</text>
+  <text x="462" y="266" text-anchor="middle" font-size="9" fill="#64748b">safeEqualSecret</text>
+  <rect x="496" y="222" width="148" height="52" rx="5" fill="#fed7aa" stroke="#ea580c" stroke-width="1.5"/>
+  <text x="570" y="239" text-anchor="middle" font-size="10" font-weight="700" fill="currentColor">password</text>
+  <text x="570" y="253" text-anchor="middle" font-size="9" fill="#64748b">authorizePasswordAuth</text>
+  <text x="570" y="266" text-anchor="middle" font-size="9" fill="#64748b">safeEqualSecret</text>
+  <line x1="141" y1="274" x2="350" y2="300" stroke="#94a3b8" stroke-width="1" stroke-dasharray="3,2" marker-end="url(#ar5d)"/>
+  <line x1="222" y1="274" x2="350" y2="300" stroke="#94a3b8" stroke-width="1" stroke-dasharray="3,2" marker-end="url(#ar5d)"/>
+  <line x1="350" y1="274" x2="350" y2="300" stroke="#94a3b8" stroke-width="1" stroke-dasharray="3,2" marker-end="url(#ar5d)"/>
+  <line x1="462" y1="274" x2="350" y2="300" stroke="#94a3b8" stroke-width="1" stroke-dasharray="3,2" marker-end="url(#ar5d)"/>
+  <line x1="570" y1="274" x2="350" y2="300" stroke="#94a3b8" stroke-width="1" stroke-dasharray="3,2" marker-end="url(#ar5d)"/>
+  <rect x="200" y="302" width="300" height="34" rx="6" fill="#99f6e4" stroke="#0d9488" stroke-width="1.5"/>
+  <text x="350" y="320" text-anchor="middle" font-size="12" font-weight="700" fill="currentColor">GatewayAuthResult</text>
+  <text x="350" y="335" text-anchor="middle" font-size="10" fill="#64748b">ok / method / user / reason / rateLimited</text>
+</svg>
+<span class="figure-caption">图 R14.1 ｜ authorizeGatewayConnect 鉴权流程：按 authSurface 分发后走五条 mode 分支</span>
+
+<details>
+<summary>ASCII 原版</summary>
+
 ```
    连接进来 (HTTP 请求 / WS 握手)
         │
@@ -128,6 +189,8 @@ const allowTailscale =
         │
         └── mode === "password" ──────► authorizePasswordAuth (safeEqualSecret)
 ```
+
+</details>
 
 `GatewayAuthResult`（`src/gateway/auth.ts:36`）描述结果，`method` 字段记下用了哪种方法：
 
@@ -997,6 +1060,56 @@ OpenClaw 配置里有一些 `dangerous*` / `dangerously*` 前缀的开关（第 
 
 把本章拼起来，一次「带凭据的 HTTP 请求」的完整旅程：
 
+<svg viewBox="0 0 760 580" xmlns="http://www.w3.org/2000/svg" class="figure-svg" role="img" aria-label="带凭据 HTTP 请求七步安全旅程：请求到达 Gateway → resolveGatewayAuth → 鉴权 → scope 判定 → scope 检查 → 方法执行 → 响应">
+  <defs>
+    <marker id="ar6" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/></marker>
+    <marker id="ar6d" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/></marker>
+  </defs>
+  <rect x="200" y="8" width="340" height="34" rx="6" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.2"/>
+  <text x="370" y="25" text-anchor="middle" font-size="11" font-weight="700" fill="currentColor">1. 请求到达 Gateway</text>
+  <text x="370" y="37" text-anchor="middle" font-size="10" fill="#94a3b8">带凭据的 HTTP 请求</text>
+  <line x1="370" y1="42" x2="370" y2="62" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar6)"/>
+  <rect x="180" y="64" width="380" height="44" rx="6" fill="#fed7aa" stroke="#ea580c" stroke-width="1.5"/>
+  <text x="370" y="82" text-anchor="middle" font-size="12" font-weight="700" fill="currentColor">2. resolveGatewayAuth</text>
+  <text x="370" y="99" text-anchor="middle" font-size="10" fill="#64748b">解析配置 → ResolvedGatewayAuth (mode/token/...)</text>
+  <line x1="370" y1="108" x2="370" y2="128" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar6)"/>
+  <rect x="180" y="130" width="380" height="90" rx="6" fill="#fed7aa" stroke="#ea580c" stroke-width="1.5"/>
+  <text x="370" y="148" text-anchor="middle" font-size="12" font-weight="700" fill="currentColor">3. authorizeHttpGatewayConnect</text>
+  <text x="200" y="165" font-size="10" fill="#64748b">· 速率限制 check（loopback 豁免）</text>
+  <text x="200" y="179" font-size="10" fill="#64748b">· trusted-proxy？→ 校验 IP / 必需头 / allowUsers / Origin</text>
+  <text x="200" y="193" font-size="10" fill="#64748b">· token/password？→ getBearerToken → safeEqualSecret（时序安全）</text>
+  <text x="200" y="207" font-size="10" fill="#94a3b8">失败 → recordFailure 可能锁定　成功 → reset 计数</text>
+  <rect x="564" y="155" width="172" height="28" rx="4" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1"/>
+  <text x="650" y="167" text-anchor="middle" font-size="10" fill="#64748b">Tailscale？</text>
+  <text x="650" y="179" text-anchor="middle" font-size="9" fill="#94a3b8">HTTP 面禁用，跳过</text>
+  <text x="555" y="175" text-anchor="end" font-size="9" fill="#94a3b8">→</text>
+  <line x1="370" y1="220" x2="370" y2="244" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar6)"/>
+  <text x="394" y="237" font-size="10" fill="#0d9488" font-weight="600">ok: true, method: "token"</text>
+  <rect x="180" y="246" width="380" height="64" rx="6" fill="#99f6e4" stroke="#0d9488" stroke-width="1.5"/>
+  <text x="370" y="264" text-anchor="middle" font-size="12" font-weight="700" fill="currentColor">4. scope 判定</text>
+  <text x="200" y="281" font-size="10" fill="#64748b">· usesSharedSecretHttpAuth？→ 授予全套 operator scope，忽略 x-openclaw-scopes</text>
+  <text x="200" y="298" font-size="10" fill="#64748b">· 带身份模式 → 尊重声明的 per-request scope</text>
+  <line x1="370" y1="310" x2="370" y2="334" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar6)"/>
+  <rect x="180" y="336" width="380" height="64" rx="6" fill="#99f6e4" stroke="#0d9488" stroke-width="1.5"/>
+  <text x="370" y="354" text-anchor="middle" font-size="12" font-weight="700" fill="currentColor">5. authorizeOperatorScopesForMethod</text>
+  <text x="200" y="371" font-size="10" fill="#64748b">· 持有 ADMIN_SCOPE → 放行一切</text>
+  <text x="200" y="385" font-size="10" fill="#64748b">· 方法未分类 → default-deny　· WRITE 隐含 READ</text>
+  <line x1="370" y1="400" x2="370" y2="424" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar6)"/>
+  <text x="394" y="417" font-size="10" fill="#0d9488" font-weight="600">allowed</text>
+  <rect x="180" y="426" width="380" height="64" rx="6" fill="#ddd6fe" stroke="#7c3aed" stroke-width="1.5"/>
+  <text x="370" y="444" text-anchor="middle" font-size="12" font-weight="700" fill="currentColor">6. 方法执行</text>
+  <text x="200" y="461" font-size="10" fill="#64748b">· 需机密 → SecretRef 解析（assertSecurePath / allowlist）</text>
+  <text x="200" y="477" font-size="10" fill="#64748b">· 读外部内容 → external-content 标记为不可信</text>
+  <line x1="370" y1="490" x2="370" y2="514" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar6)"/>
+  <rect x="200" y="516" width="340" height="34" rx="6" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.2"/>
+  <text x="370" y="534" text-anchor="middle" font-size="12" font-weight="700" fill="currentColor">7. 响应</text>
+  <text x="370" y="548" text-anchor="middle" font-size="10" fill="#64748b">永不打印机密</text>
+</svg>
+<span class="figure-caption">图 R14.2 ｜ 带凭据 HTTP 请求的七步安全旅程：鉴权（2-3 步）→ scope（4-5 步）→ 执行（6 步）→ 响应（7 步）</span>
+
+<details>
+<summary>ASCII 原版</summary>
+
 ```
    1. 请求到达 Gateway
         │
@@ -1034,6 +1147,8 @@ OpenClaw 配置里有一些 `dangerous*` / `dangerously*` 前缀的开关（第 
         ▼
    7. 响应（永不打印机密）
 ```
+
+</details>
 
 七步里，第 2-3 步是「谁能进」（鉴权），第 4-5 步是「能做什么」（scope），第 6 步触及 secrets 与外部内容边界。设备配对（14.4）是「一个新身份怎么第一次进到第 2 步」的前置流程。
 

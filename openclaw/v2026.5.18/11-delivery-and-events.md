@@ -15,6 +15,67 @@ agent runner 跑完一轮模型推理后，会产生一串「事件」（assista
 
 这两条路径是**并行且解耦**的。一个发到 Telegram 群的回复同时也会出现在打开的 WebChat 里——但走的是两套完全不同的代码。本章把这两条路径都讲透，并解释为什么要这样切分。
 
+<svg viewBox="0 0 760 420" xmlns="http://www.w3.org/2000/svg" class="figure-svg" role="img" aria-label="OpenClaw 投递路径与广播路径双轨架构图">
+  <defs>
+    <marker id="ar1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/>
+    </marker>
+  </defs>
+  <rect x="220" y="12" width="320" height="48" rx="6" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.2"/>
+  <text x="380" y="32" text-anchor="middle" font-size="11" font-weight="600" fill="currentColor">AgentEventPayload</text>
+  <text x="380" y="48" text-anchor="middle" font-size="10" fill="#64748b">{ runId, seq, stream, ts, data }</text>
+  <text x="380" y="64" text-anchor="middle" font-size="10" fill="#94a3b8">agent runner 产生事件（assistant / tool / ...）</text>
+  <line x1="380" y1="60" x2="380" y2="84" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar1)"/>
+  <line x1="200" y1="90" x2="560" y2="90" stroke="#cbd5e1" stroke-width="1" stroke-dasharray="3,2"/>
+  <line x1="200" y1="90" x2="200" y2="110" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar1)"/>
+  <line x1="560" y1="90" x2="560" y2="110" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar1)"/>
+  <rect x="60" y="108" width="280" height="32" rx="5" fill="#fed7aa" stroke="#ea580c" stroke-width="1.5"/>
+  <text x="200" y="122" text-anchor="middle" font-size="12" font-weight="700" fill="#ea580c">投递路径（外部平台）</text>
+  <text x="200" y="136" text-anchor="middle" font-size="10" fill="#64748b">dispatch-from-config.ts</text>
+  <rect x="420" y="108" width="280" height="32" rx="5" fill="#99f6e4" stroke="#0d9488" stroke-width="1.5"/>
+  <text x="560" y="122" text-anchor="middle" font-size="12" font-weight="700" fill="#0d9488">广播路径（WebSocket 客户端）</text>
+  <text x="560" y="136" text-anchor="middle" font-size="10" fill="#64748b">server-chat.ts: 事件投影器</text>
+  <line x1="200" y1="140" x2="200" y2="162" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar1)"/>
+  <line x1="560" y1="140" x2="560" y2="162" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar1)"/>
+  <rect x="60" y="162" width="280" height="44" rx="5" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.2"/>
+  <text x="200" y="179" text-anchor="middle" font-size="11" font-weight="600" fill="currentColor">ReplyDispatcher</text>
+  <text x="200" y="193" text-anchor="middle" font-size="10" fill="#64748b">sendBlockReply / sendFinalReply</text>
+  <text x="200" y="205" text-anchor="middle" font-size="10" fill="#94a3b8">normalizeReplyPayload → 排队 → humanDelay</text>
+  <rect x="420" y="162" width="280" height="44" rx="5" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.2"/>
+  <text x="560" y="179" text-anchor="middle" font-size="11" font-weight="600" fill="currentColor">broadcast("agent") / broadcast("chat")</text>
+  <text x="560" y="193" text-anchor="middle" font-size="10" fill="#64748b">emitChatDelta / sendAgentPayload</text>
+  <line x1="200" y1="206" x2="200" y2="228" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar1)"/>
+  <line x1="560" y1="206" x2="560" y2="228" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar1)"/>
+  <rect x="60" y="228" width="280" height="32" rx="5" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.2"/>
+  <text x="200" y="244" text-anchor="middle" font-size="11" font-weight="600" fill="currentColor">options.deliver(payload, {kind})</text>
+  <text x="200" y="257" text-anchor="middle" font-size="10" fill="#94a3b8">投递到 channel 适配器</text>
+  <rect x="420" y="228" width="280" height="32" rx="5" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.2"/>
+  <text x="560" y="244" text-anchor="middle" font-size="11" font-weight="600" fill="currentColor">createGatewayBroadcaster</text>
+  <text x="560" y="257" text-anchor="middle" font-size="10" fill="#64748b">按 scope 过滤 → WS frame</text>
+  <line x1="200" y1="260" x2="200" y2="282" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar1)"/>
+  <line x1="560" y1="260" x2="560" y2="282" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar1)"/>
+  <rect x="60" y="282" width="280" height="44" rx="5" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.2"/>
+  <text x="200" y="299" text-anchor="middle" font-size="11" font-weight="600" fill="currentColor">sendDurableMessageBatch</text>
+  <text x="200" y="313" text-anchor="middle" font-size="10" fill="#64748b">render → deliver → MessageReceipt</text>
+  <rect x="420" y="282" width="280" height="44" rx="5" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.2"/>
+  <text x="560" y="299" text-anchor="middle" font-size="11" font-weight="600" fill="currentColor">GatewayBrowserClient.onEvent</text>
+  <text x="560" y="313" text-anchor="middle" font-size="10" fill="#64748b">handleAgentEvent / handleChatEvent</text>
+  <line x1="200" y1="326" x2="200" y2="348" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar1)"/>
+  <rect x="60" y="348" width="280" height="32" rx="5" fill="#ddd6fe" stroke="#7c3aed" stroke-width="1.5"/>
+  <text x="200" y="364" text-anchor="middle" font-size="11" font-weight="700" fill="#7c3aed">外部平台</text>
+  <text x="200" y="378" text-anchor="middle" font-size="10" fill="#64748b">Telegram / Discord / Signal ...</text>
+  <rect x="420" y="348" width="280" height="32" rx="5" fill="#ddd6fe" stroke="#7c3aed" stroke-width="1.5"/>
+  <text x="560" y="364" text-anchor="middle" font-size="11" font-weight="700" fill="#7c3aed">前端渲染</text>
+  <text x="560" y="378" text-anchor="middle" font-size="10" fill="#64748b">实时打字效果 · 工具卡片</text>
+  <line x1="380" y1="86" x2="200" y2="90" stroke="#94a3b8" stroke-width="1" stroke-dasharray="3,2"/>
+  <line x1="380" y1="86" x2="560" y2="90" stroke="#94a3b8" stroke-width="1" stroke-dasharray="3,2"/>
+  <line x1="380" y1="84" x2="380" y2="88" stroke="#94a3b8" stroke-width="1.2"/>
+</svg>
+<span class="figure-caption">图 R11.1 ｜ 投递路径与广播路径双轨架构：agent 事件从产生到落地的两条并行管线</span>
+
+<details>
+<summary>ASCII 原版</summary>
+
 ```
                          ┌──────────────────────────────────────┐
    agent runner 产生事件   │  AgentEventPayload { runId, seq,      │
@@ -43,6 +104,8 @@ agent runner 跑完一轮模型推理后，会产生一串「事件」（assista
                   ▼
    外部平台 (Telegram / Discord / ...)
 ```
+
+</details>
 
 涉及的关键文件：
 
@@ -811,6 +874,86 @@ c.socket.send(frame);
 
 把本章串起来，跟踪一条 final 回复从产生到落地：
 
+<svg viewBox="0 0 760 580" xmlns="http://www.w3.org/2000/svg" class="figure-svg" role="img" aria-label="OpenClaw 一次完整投递时序图，从 agent 事件产生到消息落地的 9 个步骤">
+  <defs>
+    <marker id="ar2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/>
+    </marker>
+    <marker id="ar3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#0d9488"/>
+    </marker>
+  </defs>
+  <line x1="60" y1="30" x2="60" y2="560" stroke="#cbd5e1" stroke-width="1.5"/>
+  <circle cx="60" cy="44" r="11" fill="#ea580c"/>
+  <text x="60" y="48" text-anchor="middle" font-size="10" font-weight="700" fill="white">1</text>
+  <rect x="82" y="30" width="380" height="30" rx="4" fill="#fed7aa" stroke="#ea580c" stroke-width="1.2"/>
+  <text x="272" y="45" text-anchor="middle" font-size="11" font-weight="600" fill="#ea580c">agent runner 流式产出 AgentEventPayload</text>
+  <text x="272" y="58" text-anchor="middle" font-size="10" fill="#64748b">stream="assistant", data.text=...</text>
+  <line x1="460" y1="44" x2="600" y2="44" stroke="#0d9488" stroke-width="1.2" stroke-dasharray="3,2" marker-end="url(#ar3)"/>
+  <rect x="600" y="28" width="148" height="32" rx="4" fill="#99f6e4" stroke="#0d9488" stroke-width="1.2"/>
+  <text x="674" y="41" text-anchor="middle" font-size="10" font-weight="600" fill="#0d9488">[广播路径]</text>
+  <text x="674" y="53" text-anchor="middle" font-size="9" fill="#64748b">server-chat.ts 投影器</text>
+  <line x1="60" y1="60" x2="60" y2="82" stroke="#cbd5e1" stroke-width="1.5"/>
+  <line x1="60" y1="82" x2="462" y2="82" stroke="#94a3b8" stroke-width="1" stroke-dasharray="3,2"/>
+  <rect x="462" y="68" width="286" height="42" rx="4" fill="#f1f5f9" stroke="#0d9488" stroke-width="1"/>
+  <text x="605" y="84" text-anchor="middle" font-size="10" fill="#0d9488">sendOrBufferAgentTextEvent → 150ms 节流</text>
+  <text x="605" y="96" text-anchor="middle" font-size="10" fill="#0d9488">broadcast("agent") → WS frame → handleAgentEvent</text>
+  <line x1="60" y1="82" x2="60" y2="118" stroke="#cbd5e1" stroke-width="1.5"/>
+  <text x="75" y="112" font-size="10" fill="#64748b">[投递路径] dispatch-from-config.ts 累积文本</text>
+  <circle cx="60" cy="132" r="11" fill="#ea580c"/>
+  <text x="60" y="136" text-anchor="middle" font-size="10" font-weight="700" fill="white">2</text>
+  <rect x="82" y="118" width="420" height="30" rx="4" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.2"/>
+  <text x="292" y="133" text-anchor="middle" font-size="11" font-weight="600" fill="currentColor">本轮结束 → dispatcher.sendFinalReply(payload)</text>
+  <text x="292" y="146" text-anchor="middle" font-size="10" fill="#94a3b8">返回 true</text>
+  <line x1="60" y1="148" x2="60" y2="168" stroke="#cbd5e1" stroke-width="1.5" marker-end="url(#ar2)"/>
+  <circle cx="60" cy="182" r="11" fill="#ea580c"/>
+  <text x="60" y="186" text-anchor="middle" font-size="10" font-weight="700" fill="white">3</text>
+  <rect x="82" y="168" width="420" height="30" rx="4" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.2"/>
+  <text x="292" y="183" text-anchor="middle" font-size="11" font-weight="600" fill="currentColor">enqueue(): normalizeReplyPayload</text>
+  <text x="292" y="196" text-anchor="middle" font-size="10" fill="#64748b">前缀 / 线程化 / transform　　pending += 1, queuedCounts.final += 1</text>
+  <line x1="60" y1="198" x2="60" y2="218" stroke="#cbd5e1" stroke-width="1.5" marker-end="url(#ar2)"/>
+  <circle cx="60" cy="232" r="11" fill="#ea580c"/>
+  <text x="60" y="236" text-anchor="middle" font-size="10" font-weight="700" fill="white">4</text>
+  <rect x="82" y="218" width="420" height="44" rx="4" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.2"/>
+  <text x="292" y="234" text-anchor="middle" font-size="11" font-weight="600" fill="currentColor">接到 sendChain 链尾（final 不加人性化延迟）</text>
+  <text x="292" y="248" text-anchor="middle" font-size="10" fill="#64748b">→ beforeDeliver 钩子（abort 检查）</text>
+  <text x="292" y="260" text-anchor="middle" font-size="10" fill="#64748b">→ options.deliver(payload, {kind:"final"})</text>
+  <line x1="60" y1="262" x2="60" y2="282" stroke="#cbd5e1" stroke-width="1.5" marker-end="url(#ar2)"/>
+  <circle cx="60" cy="296" r="11" fill="#ea580c"/>
+  <text x="60" y="300" text-anchor="middle" font-size="10" font-weight="700" fill="white">5</text>
+  <rect x="82" y="282" width="420" height="44" rx="4" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.2"/>
+  <text x="292" y="298" text-anchor="middle" font-size="11" font-weight="600" fill="currentColor">sendDurableMessageBatch</text>
+  <text x="292" y="312" text-anchor="middle" font-size="10" fill="#64748b">ctx.render() → RenderedMessageBatch</text>
+  <text x="292" y="324" text-anchor="middle" font-size="10" fill="#64748b">ctx.send() → 外部平台　　createMessageReceiptFromOutboundResults → MessageReceipt</text>
+  <line x1="60" y1="326" x2="60" y2="346" stroke="#cbd5e1" stroke-width="1.5" marker-end="url(#ar2)"/>
+  <circle cx="60" cy="360" r="11" fill="#7c3aed"/>
+  <text x="60" y="364" text-anchor="middle" font-size="10" font-weight="700" fill="white">6</text>
+  <rect x="82" y="346" width="420" height="28" rx="4" fill="#ddd6fe" stroke="#7c3aed" stroke-width="1.2"/>
+  <text x="292" y="361" text-anchor="middle" font-size="11" font-weight="600" fill="#7c3aed">result.status === "sent" → ctx.commit(receipt)</text>
+  <text x="292" y="374" text-anchor="middle" font-size="10" fill="#94a3b8">消息已落地</text>
+  <line x1="60" y1="374" x2="60" y2="394" stroke="#cbd5e1" stroke-width="1.5" marker-end="url(#ar2)"/>
+  <circle cx="60" cy="408" r="11" fill="#ea580c"/>
+  <text x="60" y="412" text-anchor="middle" font-size="10" font-weight="700" fill="white">7</text>
+  <rect x="82" y="394" width="280" height="28" rx="4" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.2"/>
+  <text x="222" y="410" text-anchor="middle" font-size="11" font-weight="600" fill="currentColor">.finally: pending -= 1</text>
+  <line x1="60" y1="422" x2="60" y2="442" stroke="#cbd5e1" stroke-width="1.5" marker-end="url(#ar2)"/>
+  <circle cx="60" cy="456" r="11" fill="#ea580c"/>
+  <text x="60" y="460" text-anchor="middle" font-size="10" font-weight="700" fill="white">8</text>
+  <rect x="82" y="442" width="420" height="42" rx="4" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.2"/>
+  <text x="292" y="458" text-anchor="middle" font-size="11" font-weight="600" fill="currentColor">dispatcher.markComplete() → pending 归零</text>
+  <text x="292" y="472" text-anchor="middle" font-size="10" fill="#64748b">unregister() + onIdle()　　typingController.markDispatchIdle() → typing 气泡熄灭</text>
+  <line x1="60" y1="484" x2="60" y2="504" stroke="#0d9488" stroke-width="1.5" marker-end="url(#ar3)"/>
+  <circle cx="60" cy="518" r="11" fill="#0d9488"/>
+  <text x="60" y="522" text-anchor="middle" font-size="10" font-weight="700" fill="white">9</text>
+  <rect x="82" y="504" width="420" height="42" rx="4" fill="#99f6e4" stroke="#0d9488" stroke-width="1.5"/>
+  <text x="292" y="520" text-anchor="middle" font-size="11" font-weight="600" fill="#0d9488">server-chat.ts: emitChatFinal</text>
+  <text x="292" y="534" text-anchor="middle" font-size="10" fill="#0d9488">broadcast("chat", {state:"final"})　→　前端 handleChatEvent → chatMessages 追加定稿消息</text>
+</svg>
+<span class="figure-caption">图 R11.2 ｜ 一次 final 回复完整投递时序：从 agent 事件到外部平台落地与前端渲染的 9 步流程</span>
+
+<details>
+<summary>ASCII 原版</summary>
+
 ```
 1. agent runner 流式产出 AgentEventPayload(stream="assistant", data.text=...)
         │
@@ -846,6 +989,8 @@ c.socket.send(frame);
 9.       server-chat.ts: emitChatFinal → broadcast("chat", {state:"final", message})
                │  前端 handleChatEvent: state==="final" → 把消息追加进 chatMessages
 ```
+
+</details>
 
 第 1 步之后投递路径和广播路径就**彻底分头跑**，唯一的「汇合」是用户视角——他在 Telegram 看到的消息（投递路径，第 6 步）和在 WebChat 看到的消息（广播路径，第 9 步）内容一致，但来自两套独立管线。理解这个「双轨」是理解 OpenClaw 投递层的钥匙。
 

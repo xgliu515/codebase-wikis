@@ -17,6 +17,52 @@ OpenClaw 仓库的 `extensions/` 目录下有 100+ 个子目录，其中相当�
 
 整体结构：
 
+<svg viewBox="0 0 880 380" xmlns="http://www.w3.org/2000/svg" class="figure-svg" role="img" aria-label="LLM provider 架构：内核 plugin-sdk 与 extension 插件的关系，以及注册路径">
+  <defs>
+    <marker id="ar1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/>
+    </marker>
+  </defs>
+  <rect x="20" y="10" width="380" height="350" rx="8" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.5"/>
+  <text x="210" y="36" text-anchor="middle" font-size="14" font-weight="700" fill="currentColor">内核 (src/)</text>
+  <rect x="40" y="48" width="340" height="80" rx="6" fill="#fed7aa" stroke="#ea580c" stroke-width="1.2"/>
+  <text x="210" y="68" text-anchor="middle" font-size="12" font-weight="700" fill="#ea580c">plugin-sdk/</text>
+  <text x="210" y="86" text-anchor="middle" font-size="10" fill="#64748b">provider-auth</text>
+  <text x="210" y="100" text-anchor="middle" font-size="10" fill="#64748b">provider-stream</text>
+  <text x="210" y="114" text-anchor="middle" font-size="10" fill="#64748b">provider-model-shared, ...</text>
+  <rect x="40" y="148" width="160" height="36" rx="6" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.2"/>
+  <text x="120" y="162" text-anchor="middle" font-size="11" font-weight="600" fill="currentColor">plugins/registry.ts</text>
+  <text x="120" y="176" text-anchor="middle" font-size="10" fill="#64748b">registerProvider</text>
+  <rect x="220" y="148" width="160" height="36" rx="6" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.2"/>
+  <text x="300" y="162" text-anchor="middle" font-size="11" font-weight="600" fill="currentColor">plugins/types.ts</text>
+  <text x="300" y="176" text-anchor="middle" font-size="10" fill="#64748b">ProviderPlugin 定义</text>
+  <rect x="40" y="204" width="340" height="32" rx="6" fill="#ddd6fe" stroke="#7c3aed" stroke-width="1.2"/>
+  <text x="210" y="225" text-anchor="middle" font-size="11" font-weight="600" fill="#7c3aed">model-catalog/  ← 模型目录：能力 / 定价 / 上下文窗口</text>
+  <rect x="40" y="248" width="340" height="32" rx="6" fill="#ddd6fe" stroke="#7c3aed" stroke-width="1.2"/>
+  <text x="210" y="269" text-anchor="middle" font-size="11" font-weight="600" fill="#7c3aed">provider-runtime/  ← core 拥有的通用重试 / loop 工具</text>
+  <rect x="40" y="292" width="340" height="46" rx="6" fill="#99f6e4" stroke="#0d9488" stroke-width="1.5"/>
+  <text x="210" y="311" text-anchor="middle" font-size="12" font-weight="700" fill="#0d9488">pi-embedded-runner/</text>
+  <text x="210" y="328" text-anchor="middle" font-size="10" fill="#64748b">真正的推理 loop</text>
+  <text x="210" y="341" text-anchor="middle" font-size="10" fill="#64748b">（调钩子、发 HTTP、收流、跑工具）</text>
+  <rect x="480" y="10" width="380" height="350" rx="8" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.5"/>
+  <text x="670" y="36" text-anchor="middle" font-size="14" font-weight="700" fill="currentColor">extension 插件 (extensions/&lt;id&gt;/)</text>
+  <rect x="500" y="48" width="340" height="140" rx="6" fill="#fed7aa" stroke="#ea580c" stroke-width="1.2"/>
+  <text x="670" y="68" text-anchor="middle" font-size="12" font-weight="700" fill="#ea580c">index.ts  definePluginEntry</text>
+  <text x="670" y="88" text-anchor="middle" font-size="11" fill="#64748b">register.runtime.ts</text>
+  <text x="670" y="104" text-anchor="middle" font-size="10" fill="#64748b">└─ buildXxxProvider() : ProviderPlugin</text>
+  <text x="670" y="122" text-anchor="middle" font-size="11" fill="#64748b">provider-discovery.ts</text>
+  <text x="670" y="140" text-anchor="middle" font-size="11" fill="#64748b">openclaw.plugin.json  (清单)</text>
+  <text x="670" y="156" text-anchor="middle" font-size="10" fill="#94a3b8">stream-wrappers.ts / cli-backend.ts / ...</text>
+  <line x1="500" y1="116" x2="420" y2="116" stroke="#94a3b8" stroke-width="1.2" stroke-dasharray="4,2" marker-end="url(#ar1)"/>
+  <text x="460" y="110" text-anchor="middle" font-size="10" fill="#64748b">import</text>
+  <line x1="500" y1="156" x2="380" y2="156" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar1)"/>
+  <text x="440" y="148" text-anchor="middle" font-size="10" fill="#64748b">registerProvider</text>
+</svg>
+<span class="figure-caption">图 R8.1 ｜ LLM provider 整体架构：内核 plugin-sdk 暴露公共接口，extension 插件通过 import SDK 实现 ProviderPlugin 并向 registry 注册</span>
+
+<details>
+<summary>ASCII 原版</summary>
+
 ```
 内核 (src/)                          extension 插件 (extensions/<id>/)
 ─────────────────────────           ──────────────────────────────────
@@ -32,6 +78,8 @@ model-catalog/      ← 模型目录：能力 / 定价 / 上下文窗口
 provider-runtime/   ← core 拥有的通用重试 / loop 工具
 pi-embedded-runner/ ← 真正的推理 loop（调钩子、发 HTTP、收流、跑工具）
 ```
+
+</details>
 
 ---
 
@@ -261,6 +309,56 @@ provider 插件常用的 plugin-sdk 模块（从 anthropic / ollama 的 import �
 
 把第 07 章和本章拼起来，一次推理的完整数据流是：
 
+<svg viewBox="0 0 760 380" xmlns="http://www.w3.org/2000/svg" class="figure-svg" role="img" aria-label="推理完整数据流：runEmbeddedPiAgent 组装消息→推理 loop 调 StreamFn→HTTP 请求 provider 端点→解析流→tool_use 分支循环或 end_turn 结束">
+  <defs>
+    <marker id="ar1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/>
+    </marker>
+    <marker id="ar2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#0d9488"/>
+    </marker>
+  </defs>
+  <rect x="80" y="10" width="600" height="56" rx="8" fill="#fed7aa" stroke="#ea580c" stroke-width="1.5"/>
+  <text x="380" y="32" text-anchor="middle" font-size="13" font-weight="700" fill="#ea580c">runEmbeddedPiAgent  (pi-embedded-runner，内核)</text>
+  <text x="380" y="52" text-anchor="middle" font-size="11" fill="#64748b">组装 system prompt + 历史 transcript + 工具 schema + 当前消息</text>
+  <line x1="380" y1="66" x2="380" y2="90" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar1)"/>
+  <rect x="80" y="90" width="600" height="36" rx="8" fill="#ddd6fe" stroke="#7c3aed" stroke-width="1.5"/>
+  <text x="380" y="113" text-anchor="middle" font-size="13" font-weight="700" fill="#7c3aed">通用推理 loop  (@earendil-works/pi-agent-core + pi-embedded-runner)</text>
+  <line x1="380" y1="126" x2="380" y2="148" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar1)"/>
+  <rect x="80" y="148" width="340" height="36" rx="6" fill="#f1f5f9" stroke="#0ea5e9" stroke-width="1.5"/>
+  <text x="250" y="162" text-anchor="middle" font-size="11" font-weight="600" fill="#0ea5e9">调 provider 的 StreamFn</text>
+  <text x="250" y="176" text-anchor="middle" font-size="10" fill="#64748b">plugin 提供或包装</text>
+  <line x1="420" y1="166" x2="540" y2="166" stroke="#0ea5e9" stroke-width="1.5" marker-end="url(#ar1)"/>
+  <text x="480" y="158" text-anchor="middle" font-size="10" fill="#0ea5e9">HTTP</text>
+  <rect x="540" y="148" width="200" height="36" rx="6" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.2"/>
+  <text x="640" y="162" text-anchor="middle" font-size="11" font-weight="600" fill="currentColor">provider 端点</text>
+  <text x="640" y="176" text-anchor="middle" font-size="10" fill="#64748b">api.anthropic.com / localhost:11434</text>
+  <path d="M 540 180 L 430 180 L 430 184" fill="none" stroke="#0ea5e9" stroke-width="1.2" stroke-dasharray="3,2" marker-end="url(#ar1)"/>
+  <text x="485" y="194" text-anchor="middle" font-size="10" fill="#0ea5e9">SSE / 流式响应</text>
+  <rect x="80" y="200" width="340" height="56" rx="6" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.2"/>
+  <text x="250" y="220" text-anchor="middle" font-size="11" font-weight="600" fill="currentColor">解析流</text>
+  <text x="250" y="236" text-anchor="middle" font-size="10" fill="#64748b">text delta / thinking / tool_use</text>
+  <text x="250" y="250" text-anchor="middle" font-size="10" fill="#64748b">usage / stop_reason</text>
+  <line x1="250" y1="256" x2="250" y2="280" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar1)"/>
+  <rect x="80" y="280" width="155" height="52" rx="6" fill="#99f6e4" stroke="#0d9488" stroke-width="1.5"/>
+  <text x="158" y="300" text-anchor="middle" font-size="11" font-weight="600" fill="#0d9488">有 tool_use?</text>
+  <text x="158" y="316" text-anchor="middle" font-size="10" fill="#64748b">执行工具</text>
+  <text x="158" y="330" text-anchor="middle" font-size="10" fill="#64748b">拼回 tool_result → 回 loop 顶</text>
+  <path d="M 158 332 L 158 360 L 380 360 L 380 108" fill="none" stroke="#0d9488" stroke-width="1.2" stroke-dasharray="4,2" marker-end="url(#ar2)"/>
+  <rect x="255" y="280" width="165" height="52" rx="6" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.2"/>
+  <text x="338" y="300" text-anchor="middle" font-size="11" font-weight="600" fill="currentColor">stop_reason = end_turn</text>
+  <text x="338" y="316" text-anchor="middle" font-size="10" fill="#64748b">结束</text>
+  <line x1="450" y1="256" x2="450" y2="310" stroke="#94a3b8" stroke-width="1.2" stroke-dasharray="3,2" marker-end="url(#ar1)"/>
+  <text x="460" y="288" font-size="10" fill="#94a3b8">沿途 emit</text>
+  <rect x="466" y="280" width="214" height="52" rx="6" fill="#ddd6fe" stroke="#7c3aed" stroke-width="1.2"/>
+  <text x="573" y="300" text-anchor="middle" font-size="11" font-weight="600" fill="#7c3aed">assistant / tool / item 事件</text>
+  <text x="573" y="316" text-anchor="middle" font-size="10" fill="#64748b">第 07 章 7.8</text>
+</svg>
+<span class="figure-caption">图 R8.2 ｜ 一次推理的完整数据流：loop 通过 StreamFn 发 HTTP 请求、接收 SSE 流，有 tool_use 则执行工具并回到 loop 顶，收到 end_turn 则结束</span>
+
+<details>
+<summary>ASCII 原版</summary>
+
 ```
 runEmbeddedPiAgent (pi-embedded-runner，内核)
    │  组装 system prompt + 历史 transcript + 工具 schema + 当前消息
@@ -276,6 +374,8 @@ runEmbeddedPiAgent (pi-embedded-runner，内核)
    │
    └─→ 沿途 emit assistant / tool / item 事件 (第 07 章 7.8)
 ```
+
+</details>
 
 loop 本身是 provider 无关的。provider 插件介入的点是那个 `StreamFn`——它决定"一次 HTTP 请求长什么样、流怎么解析"。
 
@@ -378,6 +478,41 @@ export type ModelCatalogEntry = {
 
 模型目录的数据来源是多路的，最后被 `mergeModelCatalogRowsByAuthority` 按"权威性"合并：
 
+<svg viewBox="0 0 760 300" xmlns="http://www.w3.org/2000/svg" class="figure-svg" role="img" aria-label="模型目录五路数据来源汇合后经 mergeModelCatalogRowsByAuthority 合并为最终目录">
+  <defs>
+    <marker id="ar1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/>
+    </marker>
+  </defs>
+  <rect x="20" y="10" width="280" height="32" rx="6" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.2"/>
+  <text x="160" y="31" text-anchor="middle" font-size="11" font-weight="600" fill="currentColor">插件清单 (openclaw.plugin.json)</text>
+  <rect x="20" y="56" width="280" height="32" rx="6" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.2"/>
+  <text x="160" y="77" text-anchor="middle" font-size="11" font-weight="600" fill="currentColor">provider index（内置 provider 索引）</text>
+  <rect x="20" y="102" width="280" height="44" rx="6" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.2"/>
+  <text x="160" y="120" text-anchor="middle" font-size="11" font-weight="600" fill="currentColor">provider 插件钩子</text>
+  <text x="160" y="138" text-anchor="middle" font-size="10" fill="#64748b">catalog / staticCatalog / augmentModelCatalog</text>
+  <rect x="20" y="160" width="280" height="44" rx="6" fill="#99f6e4" stroke="#0d9488" stroke-width="1.5"/>
+  <text x="160" y="178" text-anchor="middle" font-size="11" font-weight="600" fill="#0d9488">liveCatalog（动态发现）</text>
+  <text x="160" y="196" text-anchor="middle" font-size="10" fill="#64748b">如 Ollama 运行时拉本地模型列表</text>
+  <rect x="20" y="218" width="280" height="32" rx="6" fill="#ddd6fe" stroke="#7c3aed" stroke-width="1.2"/>
+  <text x="160" y="239" text-anchor="middle" font-size="11" font-weight="600" fill="#7c3aed">用户配置 (models.providers.&lt;id&gt;.models)</text>
+  <line x1="300" y1="26" x2="400" y2="150" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar1)"/>
+  <line x1="300" y1="72" x2="400" y2="152" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar1)"/>
+  <line x1="300" y1="124" x2="400" y2="155" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar1)"/>
+  <line x1="300" y1="182" x2="400" y2="158" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar1)"/>
+  <line x1="300" y1="234" x2="400" y2="162" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar1)"/>
+  <rect x="400" y="124" width="240" height="56" rx="8" fill="#fed7aa" stroke="#ea580c" stroke-width="1.5"/>
+  <text x="520" y="146" text-anchor="middle" font-size="12" font-weight="700" fill="#ea580c">mergeModelCatalogRowsByAuthority</text>
+  <text x="520" y="164" text-anchor="middle" font-size="10" fill="#64748b">+ normalizeModelCatalog</text>
+  <line x1="520" y1="180" x2="520" y2="218" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar1)"/>
+  <rect x="400" y="218" width="240" height="40" rx="8" fill="#0d9488"/>
+  <text x="520" y="243" text-anchor="middle" font-size="13" font-weight="700" fill="white">最终模型目录</text>
+</svg>
+<span class="figure-caption">图 R8.3 ｜ 模型目录五路数据来源汇合：清单、内置索引、插件钩子、动态发现、用户配置经权威性合并为唯一最终目录</span>
+
+<details>
+<summary>ASCII 原版</summary>
+
 ```
 插件清单 (openclaw.plugin.json: modelPricing / modelSupport)
 provider index (内置 provider 索引)
@@ -388,6 +523,8 @@ provider 的 liveCatalog (动态发现，如 Ollama 拉本地模型列表)
               ▼  mergeModelCatalogRowsByAuthority + normalizeModelCatalog
         最终模型目录
 ```
+
+</details>
 
 **为什么定价和能力不写死在内核**：模型迭代极快（每月都有新模型、调价）。定价放在插件清单的 `modelPricing` 字段（anthropic 清单里有 `openRouter.modelIdTransforms`），能力放在目录行里，更新一个 provider 不动内核。`ModelCatalogDiscovery` 的 `runtime` 档位专门给 Ollama 这种"模型清单只能在运行时从服务端问出来"的 provider。
 

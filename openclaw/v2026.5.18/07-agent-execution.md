@@ -17,6 +17,55 @@
 
 阅读本章前，建议先建立一个心智模型：
 
+<svg viewBox="0 0 760 340" xmlns="http://www.w3.org/2000/svg" class="figure-svg" role="img" aria-label="agentCommand 调用层级：信任包装→协调器→各子步骤">
+  <defs>
+    <marker id="ar1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/>
+    </marker>
+  </defs>
+  <rect x="30" y="10" width="700" height="50" rx="8" fill="#fed7aa" stroke="#ea580c" stroke-width="1.5"/>
+  <text x="380" y="32" text-anchor="middle" font-size="13" font-weight="700" fill="#ea580c">agentCommand  (信任边界 / 包装)</text>
+  <text x="380" y="50" text-anchor="middle" font-size="10" fill="#64748b">agent-command.ts:1568</text>
+  <line x1="380" y1="60" x2="380" y2="80" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar1)"/>
+  <rect x="60" y="80" width="640" height="240" rx="8" fill="#ddd6fe" stroke="#7c3aed" stroke-width="1.5"/>
+  <text x="380" y="102" text-anchor="middle" font-size="13" font-weight="700" fill="#7c3aed">agentCommandInternal  (真正的协调器)</text>
+  <text x="380" y="118" text-anchor="middle" font-size="10" fill="#94a3b8">agent-command.ts:485</text>
+  <line x1="110" y1="128" x2="110" y2="308" stroke="#cbd5e1" stroke-width="1.2"/>
+  <line x1="110" y1="140" x2="128" y2="140" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar1)"/>
+  <rect x="128" y="128" width="560" height="22" rx="4" fill="#f1f5f9" stroke="#cbd5e1"/>
+  <text x="148" y="143" font-size="11" font-weight="600" fill="currentColor">prepareAgentCommandExecution</text>
+  <text x="420" y="143" font-size="11" fill="#64748b">解析 session / agent / workspace</text>
+  <line x1="110" y1="162" x2="128" y2="162" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar1)"/>
+  <rect x="128" y="150" width="560" height="22" rx="4" fill="#f1f5f9" stroke="#cbd5e1"/>
+  <text x="148" y="165" font-size="11" font-weight="600" fill="currentColor">[模型选择]</text>
+  <text x="280" y="165" font-size="11" fill="#64748b">默认 → 持久化覆盖 → 显式覆盖 → allowlist</text>
+  <line x1="110" y1="184" x2="128" y2="184" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar1)"/>
+  <rect x="128" y="172" width="560" height="22" rx="4" fill="#f1f5f9" stroke="#cbd5e1"/>
+  <text x="148" y="187" font-size="11" font-weight="600" fill="currentColor">[auth profile 校验]</text>
+  <text x="310" y="187" font-size="11" fill="#64748b">session 固定的 profile 是否还兼容当前 provider</text>
+  <line x1="110" y1="206" x2="128" y2="206" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar1)"/>
+  <rect x="128" y="194" width="560" height="44" rx="4" fill="#99f6e4" stroke="#0d9488" stroke-width="1.2"/>
+  <text x="148" y="210" font-size="11" font-weight="600" fill="#0d9488">runWithModelFallback</text>
+  <text x="320" y="210" font-size="11" fill="#64748b">外层 fallback 循环</text>
+  <text x="168" y="228" font-size="11" fill="#64748b">└── runAgentAttempt  单次 attempt（embedded pi / CLI / ACP）</text>
+  <text x="188" y="232" font-size="10" fill="#94a3b8">└── runEmbeddedPiAgent / runCliAgent</text>
+  <line x1="110" y1="252" x2="128" y2="252" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar1)"/>
+  <rect x="128" y="240" width="560" height="22" rx="4" fill="#f1f5f9" stroke="#cbd5e1"/>
+  <text x="148" y="255" font-size="11" font-weight="600" fill="currentColor">[事件发射]</text>
+  <text x="260" y="255" font-size="11" fill="#64748b">lifecycle / assistant / tool / item ...</text>
+  <line x1="110" y1="274" x2="128" y2="274" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar1)"/>
+  <rect x="128" y="262" width="560" height="22" rx="4" fill="#f1f5f9" stroke="#cbd5e1"/>
+  <text x="148" y="277" font-size="11" font-weight="600" fill="currentColor">[transcript 持久化 + compaction]</text>
+  <line x1="110" y1="296" x2="128" y2="296" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar1)"/>
+  <rect x="128" y="284" width="560" height="22" rx="4" fill="#f1f5f9" stroke="#cbd5e1"/>
+  <text x="148" y="299" font-size="11" font-weight="600" fill="currentColor">deliverAgentCommandResult</text>
+  <text x="370" y="299" font-size="11" fill="#64748b">把响应投递回渠道</text>
+</svg>
+<span class="figure-caption">图 R7.1 ｜ agentCommand 调用层级：外层信任包装薄委托内层协调器，协调器顺序编排准备、模型选择、fallback 执行、事件发射、转录持久化、结果投递</span>
+
+<details>
+<summary>ASCII 原版</summary>
+
 ```
 agentCommand (信任边界 / 包装)
    └── agentCommandInternal (真正的协调器)
@@ -30,6 +79,8 @@ agentCommand (信任边界 / 包装)
          ├── [transcript 持久化 + compaction]
          └── deliverAgentCommandResult      把响应投递回渠道
 ```
+
+</details>
 
 ---
 
@@ -197,6 +248,44 @@ const body =
 
 模型选择从"agent 配置的默认值"出发，逐层叠加覆盖：
 
+<svg viewBox="0 0 640 300" xmlns="http://www.w3.org/2000/svg" class="figure-svg" role="img" aria-label="模型选择四层优先级：配置默认→session 持久化覆盖→本次显式覆盖→allowlist 收敛">
+  <defs>
+    <marker id="ar1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/>
+    </marker>
+  </defs>
+  <rect x="60" y="10" width="520" height="44" rx="8" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.2"/>
+  <text x="110" y="28" font-size="11" fill="#94a3b8">第 1 层</text>
+  <text x="160" y="28" font-size="13" font-weight="700" fill="currentColor">配置默认</text>
+  <text x="290" y="28" font-size="11" fill="#64748b">resolveDefaultModelForAgent(cfg, agentId)</text>
+  <text x="160" y="46" font-size="10" fill="#94a3b8">agent 级别 model 覆盖 → resolveConfiguredModelRef → normalizeModelRef</text>
+  <line x1="320" y1="54" x2="320" y2="76" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar1)" stroke-dasharray="3,2"/>
+  <text x="330" y="70" font-size="10" fill="#94a3b8">被覆盖</text>
+  <rect x="60" y="76" width="520" height="44" rx="8" fill="#fed7aa" stroke="#ea580c" stroke-width="1.5"/>
+  <text x="110" y="94" font-size="11" fill="#ea580c">第 2 层</text>
+  <text x="160" y="94" font-size="13" font-weight="700" fill="#ea580c">session 持久化覆盖</text>
+  <text x="380" y="94" font-size="11" fill="#64748b">sessionEntry.providerOverride / modelOverride</text>
+  <text x="160" y="112" font-size="10" fill="#94a3b8">仅在仍被 allowlist 允许时采纳；不在则清除并回退到默认</text>
+  <line x1="320" y1="120" x2="320" y2="142" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar1)" stroke-dasharray="3,2"/>
+  <text x="330" y="136" font-size="10" fill="#94a3b8">被覆盖</text>
+  <rect x="60" y="142" width="520" height="44" rx="8" fill="#ddd6fe" stroke="#7c3aed" stroke-width="1.5"/>
+  <text x="110" y="160" font-size="11" fill="#7c3aed">第 3 层</text>
+  <text x="160" y="160" font-size="13" font-weight="700" fill="#7c3aed">本次显式覆盖</text>
+  <text x="320" y="160" font-size="11" fill="#64748b">opts.provider / opts.model（需 allowModelOverride）</text>
+  <text x="160" y="178" font-size="10" fill="#94a3b8">agentCommandFromIngress 调用方必须显式声明 allowModelOverride</text>
+  <line x1="320" y1="186" x2="320" y2="208" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar1)" stroke-dasharray="3,2"/>
+  <text x="330" y="202" font-size="10" fill="#94a3b8">受约束</text>
+  <rect x="60" y="208" width="520" height="44" rx="8" fill="#99f6e4" stroke="#0d9488" stroke-width="1.5"/>
+  <text x="110" y="226" font-size="11" fill="#0d9488">第 4 层</text>
+  <text x="160" y="226" font-size="13" font-weight="700" fill="#0d9488">allowlist 收敛</text>
+  <text x="310" y="226" font-size="11" fill="#64748b">visibilityPolicy.resolveSelection(...)</text>
+  <text x="160" y="244" font-size="10" fill="#94a3b8">最终模型必须在 agent 的 models 白名单内；否则报错或回退</text>
+</svg>
+<span class="figure-caption">图 R7.2 ｜ 模型选择四层优先级：下层覆盖上层，但第 4 层 allowlist 收敛是硬约束，任何覆盖都不能绕过</span>
+
+<details>
+<summary>ASCII 原版</summary>
+
 ```
 第 1 层  配置默认       resolveDefaultModelForAgent(cfg, agentId)
               ↓ (被覆盖)
@@ -206,6 +295,8 @@ const body =
               ↓ (受约束)
 第 4 层  allowlist 收敛  visibilityPolicy.resolveSelection(...)
 ```
+
+</details>
 
 **第 1 层 — 配置默认。** `resolveDefaultModelForAgent`（`src/agents/model-selection.ts:214-247`）先看 agent 级别的 model 覆盖（`resolveAgentEffectiveModelPrimary`），若有就把它塞进一份临时 cfg 的 `agents.defaults.model.primary`，再交给 `resolveConfiguredModelRef` 统一解析。`src/agents/agent-command.ts:783-794` 取出结果并归一化：
 
@@ -461,6 +552,49 @@ const effectiveFallbacksOverride = resolveEffectiveModelFallbacks({
 
 `runAgentAttempt`（`src/agents/command/attempt-execution.ts:367-691`）是单次 attempt 的核心。它的任务是：根据 provider/model/harness 策略，决定走**三条 runner 路径**中的哪一条。
 
+<svg viewBox="0 0 760 280" xmlns="http://www.w3.org/2000/svg" class="figure-svg" role="img" aria-label="runAgentAttempt 三条 runner 路径：isRawModelRun→强制 pi harness，isCliProvider→runCliAgent，默认→runEmbeddedPiAgent">
+  <defs>
+    <marker id="ar1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/>
+    </marker>
+  </defs>
+  <rect x="280" y="10" width="200" height="36" rx="8" fill="#ea580c" stroke="#ea580c" stroke-width="1.5"/>
+  <text x="380" y="33" text-anchor="middle" font-size="13" font-weight="700" fill="white">runAgentAttempt</text>
+  <line x1="380" y1="46" x2="380" y2="76" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar1)"/>
+  <line x1="100" y1="76" x2="660" y2="76" stroke="#94a3b8" stroke-width="1.2"/>
+  <line x1="100" y1="76" x2="100" y2="106" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar1)"/>
+  <line x1="380" y1="76" x2="380" y2="106" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar1)"/>
+  <line x1="660" y1="76" x2="660" y2="106" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar1)"/>
+  <rect x="20" y="106" width="160" height="40" rx="6" fill="#ddd6fe" stroke="#7c3aed" stroke-width="1.2"/>
+  <text x="100" y="122" text-anchor="middle" font-size="11" font-weight="600" fill="#7c3aed">isRawModelRun?</text>
+  <text x="100" y="138" text-anchor="middle" font-size="10" fill="#64748b">harness 策略判断</text>
+  <rect x="300" y="106" width="160" height="40" rx="6" fill="#ddd6fe" stroke="#7c3aed" stroke-width="1.2"/>
+  <text x="380" y="122" text-anchor="middle" font-size="11" font-weight="600" fill="#7c3aed">isCliProvider?</text>
+  <text x="380" y="138" text-anchor="middle" font-size="10" fill="#64748b">CLI 执行 provider 判断</text>
+  <rect x="580" y="106" width="160" height="40" rx="6" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.2"/>
+  <text x="660" y="122" text-anchor="middle" font-size="11" font-weight="600" fill="currentColor">默认 (embedded pi)</text>
+  <text x="660" y="138" text-anchor="middle" font-size="10" fill="#64748b">其余情况</text>
+  <line x1="100" y1="146" x2="100" y2="176" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar1)"/>
+  <line x1="380" y1="146" x2="380" y2="176" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar1)"/>
+  <line x1="660" y1="146" x2="660" y2="176" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar1)"/>
+  <rect x="20" y="176" width="160" height="60" rx="6" fill="#fed7aa" stroke="#ea580c" stroke-width="1.5"/>
+  <text x="100" y="196" text-anchor="middle" font-size="11" font-weight="700" fill="#ea580c">强制 pi harness</text>
+  <text x="100" y="214" text-anchor="middle" font-size="10" fill="#64748b">跳过 CLI 包装，</text>
+  <text x="100" y="228" text-anchor="middle" font-size="10" fill="#64748b">直走 embedded pi</text>
+  <rect x="300" y="176" width="160" height="60" rx="6" fill="#99f6e4" stroke="#0d9488" stroke-width="1.5"/>
+  <text x="380" y="196" text-anchor="middle" font-size="11" font-weight="700" fill="#0d9488">runCliAgent</text>
+  <text x="380" y="214" text-anchor="middle" font-size="10" fill="#64748b">claude-cli 等外部</text>
+  <text x="380" y="228" text-anchor="middle" font-size="10" fill="#64748b">CLI 工具</text>
+  <rect x="580" y="176" width="160" height="60" rx="6" fill="#ddd6fe" stroke="#7c3aed" stroke-width="1.5"/>
+  <text x="660" y="196" text-anchor="middle" font-size="11" font-weight="700" fill="#7c3aed">runEmbeddedPiAgent</text>
+  <text x="660" y="214" text-anchor="middle" font-size="10" fill="#64748b">内嵌 pi-agent，</text>
+  <text x="660" y="228" text-anchor="middle" font-size="10" fill="#64748b">真正调 LLM provider</text>
+</svg>
+<span class="figure-caption">图 R7.3 ｜ runAgentAttempt 三条 runner 路径：按 harness 策略和 CLI provider 判断分流，默认走内嵌 pi-agent 直接调 LLM</span>
+
+<details>
+<summary>ASCII 原版</summary>
+
 ```
             runAgentAttempt
                   │
@@ -472,6 +606,8 @@ isRawModelRun?  isCliProvider?       默认 (embedded pi)
  harness     (claude-cli 等         (内嵌 pi-agent，
               外部 CLI 工具)         真正调 LLM provider)
 ```
+
+</details>
 
 判定逻辑（`src/agents/command/attempt-execution.ts:430-485`）：
 

@@ -26,6 +26,85 @@ export async function startGatewayServer(
 
 整个函数体被一连串 `startupTrace.measure("<阶段名>", ...)` 切成清晰的阶段。`createGatewayStartupTrace`（`src/gateway/server.impl.ts:223-419`）是本文件的「计时器」：它在 `OPENCLAW_GATEWAY_STARTUP_TRACE` 为真时往日志打 trace，同时把每段耗时记进 restart trace 和 diagnostics timeline。把所有 `measure`/`mark` 调用按顺序排出来，就是 Gateway 的启动序列：
 
+<svg viewBox="0 0 760 560" xmlns="http://www.w3.org/2000/svg" class="figure-svg" role="img" aria-label="startGatewayServer 十二阶段启动序列">
+  <defs>
+    <marker id="ar1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/>
+    </marker>
+  </defs>
+  <text x="380" y="20" text-anchor="middle" font-size="14" font-weight="700" fill="currentColor">startGatewayServer —— 十二阶段启动序列</text>
+  <rect x="20" y="32" width="720" height="28" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1" rx="4"/>
+  <text x="380" y="50" text-anchor="middle" font-size="11" font-weight="600" fill="currentColor">startGatewayServer(port=18789, opts)</text>
+  <line x1="380" y1="60" x2="380" y2="72" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar1)"/>
+  <rect x="20" y="72" width="720" height="28" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1" rx="4"/>
+  <text x="380" y="90" text-anchor="middle" font-size="10" fill="#64748b">bootstrapGatewayNetworkRuntime()  +  resume restart trace</text>
+  <line x1="380" y1="100" x2="380" y2="112" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar1)"/>
+  <rect x="20" y="112" width="345" height="22" fill="#fed7aa" stroke="#ea580c" stroke-width="1.2" rx="3"/>
+  <text x="192" y="127" text-anchor="middle" font-size="10" font-weight="600" fill="#ea580c">① config.snapshot  读取 openclaw.json 快照</text>
+  <rect x="375" y="112" width="365" height="22" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1" rx="3"/>
+  <text x="557" y="127" text-anchor="middle" font-size="10" fill="#94a3b8">:570-580</text>
+  <line x1="380" y1="134" x2="380" y2="144" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar1)"/>
+  <rect x="20" y="144" width="345" height="22" fill="#fed7aa" stroke="#ea580c" stroke-width="1.2" rx="3"/>
+  <text x="192" y="159" text-anchor="middle" font-size="10" font-weight="600" fill="#ea580c">② config.auth  解析 / 引导 gateway auth</text>
+  <rect x="375" y="144" width="365" height="22" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1" rx="3"/>
+  <text x="557" y="159" text-anchor="middle" font-size="10" fill="#94a3b8">:607-615  + control-ui.seed :640-650</text>
+  <line x1="380" y1="166" x2="380" y2="176" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar1)"/>
+  <rect x="20" y="176" width="345" height="22" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.2" rx="3"/>
+  <text x="192" y="191" text-anchor="middle" font-size="10" font-weight="600" fill="currentColor">③ plugins.bootstrap  插件 bootstrap（不加载 runtime）</text>
+  <rect x="375" y="176" width="365" height="22" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1" rx="3"/>
+  <text x="557" y="191" text-anchor="middle" font-size="10" fill="#94a3b8">:662-672</text>
+  <line x1="380" y1="198" x2="380" y2="208" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar1)"/>
+  <rect x="20" y="208" width="345" height="22" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.2" rx="3"/>
+  <text x="192" y="223" text-anchor="middle" font-size="10" font-weight="600" fill="currentColor">④ runtime.config  解析 bind/port/controlUi/auth/TLS</text>
+  <rect x="375" y="208" width="365" height="22" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1" rx="3"/>
+  <text x="557" y="223" text-anchor="middle" font-size="10" fill="#94a3b8">:726-739  + control-ui.root :801  + tls :816</text>
+  <line x1="380" y1="230" x2="380" y2="240" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar1)"/>
+  <rect x="20" y="240" width="345" height="22" fill="#99f6e4" stroke="#0d9488" stroke-width="1.5" rx="3"/>
+  <text x="192" y="255" text-anchor="middle" font-size="10" font-weight="600" fill="#0d9488">⑤ runtime.state  创建 HTTP server + WS server + 共享态</text>
+  <rect x="375" y="240" width="365" height="22" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1" rx="3"/>
+  <text x="557" y="255" text-anchor="middle" font-size="10" fill="#94a3b8">:871-898  + node-session :899-912</text>
+  <line x1="380" y1="262" x2="380" y2="272" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar1)"/>
+  <rect x="20" y="272" width="345" height="22" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.2" rx="3"/>
+  <text x="192" y="287" text-anchor="middle" font-size="10" font-weight="600" fill="currentColor">⑥ runtime.early  discovery、maintenance、事件订阅、runtime 服务</text>
+  <rect x="375" y="272" width="365" height="22" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1" rx="3"/>
+  <text x="557" y="287" text-anchor="middle" font-size="10" fill="#94a3b8">:1038-1110</text>
+  <line x1="380" y1="294" x2="380" y2="304" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar1)"/>
+  <rect x="20" y="304" width="345" height="22" fill="#ddd6fe" stroke="#7c3aed" stroke-width="1.5" rx="3"/>
+  <text x="192" y="319" text-anchor="middle" font-size="10" font-weight="600" fill="#7c3aed">⑦ 构建 method registry（core + plugin + aux）</text>
+  <rect x="375" y="304" width="365" height="22" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1" rx="3"/>
+  <text x="557" y="319" text-anchor="middle" font-size="10" fill="#94a3b8">:1129-1151</text>
+  <line x1="380" y1="326" x2="380" y2="336" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar1)"/>
+  <rect x="20" y="336" width="345" height="22" fill="#ddd6fe" stroke="#7c3aed" stroke-width="1.2" rx="3"/>
+  <text x="192" y="351" text-anchor="middle" font-size="10" font-weight="600" fill="#7c3aed">⑧ createGatewayRequestContext  构建请求上下文</text>
+  <rect x="375" y="336" width="365" height="22" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1" rx="3"/>
+  <text x="557" y="351" text-anchor="middle" font-size="10" fill="#94a3b8">:1325-1391</text>
+  <line x1="380" y1="358" x2="380" y2="368" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar1)"/>
+  <rect x="20" y="368" width="345" height="22" fill="#ddd6fe" stroke="#7c3aed" stroke-width="1.2" rx="3"/>
+  <text x="192" y="383" text-anchor="middle" font-size="10" font-weight="600" fill="#7c3aed">⑨ attachGatewayWsHandlers  挂载 WS 连接处理器</text>
+  <rect x="375" y="368" width="365" height="22" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1" rx="3"/>
+  <text x="557" y="383" text-anchor="middle" font-size="10" fill="#94a3b8">:1427-1452</text>
+  <line x1="380" y1="390" x2="380" y2="400" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar1)"/>
+  <rect x="20" y="400" width="345" height="22" fill="#99f6e4" stroke="#0d9488" stroke-width="2" rx="3"/>
+  <text x="192" y="415" text-anchor="middle" font-size="10" font-weight="700" fill="#0d9488">⑩ startListening()  HTTP server 真正监听端口  → mark "http.bound"</text>
+  <rect x="375" y="400" width="365" height="22" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1" rx="3"/>
+  <text x="557" y="415" text-anchor="middle" font-size="10" fill="#94a3b8">:1453-1454</text>
+  <line x1="380" y1="422" x2="380" y2="432" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar1)"/>
+  <rect x="20" y="432" width="345" height="22" fill="#fed7aa" stroke="#ea580c" stroke-width="1.5" rx="3"/>
+  <text x="192" y="447" text-anchor="middle" font-size="10" font-weight="600" fill="#ea580c">⑪ runtime.post-attach  启动 channels / plugin sidecars  → mark "ready"</text>
+  <rect x="375" y="432" width="365" height="22" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1" rx="3"/>
+  <text x="557" y="447" text-anchor="middle" font-size="10" fill="#94a3b8">:1486-1563</text>
+  <line x1="380" y1="454" x2="380" y2="464" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar1)"/>
+  <rect x="20" y="464" width="345" height="22" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.2" rx="3"/>
+  <text x="192" y="479" text-anchor="middle" font-size="10" font-weight="600" fill="currentColor">⑫ startManagedGatewayConfigReloader  配置热重载 + post-ready maintenance</text>
+  <rect x="375" y="464" width="365" height="22" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1" rx="3"/>
+  <text x="557" y="479" text-anchor="middle" font-size="10" fill="#94a3b8">:1568-1657</text>
+  <text x="380" y="510" text-anchor="middle" font-size="10" fill="#94a3b8">注意：⑤ 创建 server，⑨ 挂处理器，⑩ 才开端口——先挂处理器再开端口，杜绝竞态</text>
+</svg>
+<span class="figure-caption">图 R2.1 ｜ startGatewayServer 十二阶段启动序列：config → plugins → runtime → registry → 监听 → sidecar → 热重载</span>
+
+<details>
+<summary>ASCII 原版</summary>
+
 ```
 startGatewayServer(port=18789, opts)
   │
@@ -57,6 +136,8 @@ startGatewayServer(port=18789, opts)
   └─ ⑫ startManagedGatewayConfigReloader  启动配置热重载       :1568-1615
           └─ schedule post-ready maintenance                   :1620-1657
 ```
+
+</details>
 
 这个序列的**顺序本身就是设计**。几个关键约束：
 
@@ -308,6 +389,39 @@ setClient: (next) => {
 
 消息处理流程：
 
+<svg viewBox="0 0 760 300" xmlns="http://www.w3.org/2000/svg" class="figure-svg" role="img" aria-label="握手后 WS 消息分帧与分发流程">
+  <defs>
+    <marker id="ar2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/>
+    </marker>
+  </defs>
+  <text x="380" y="20" text-anchor="middle" font-size="14" font-weight="700" fill="currentColor">握手后消息分帧与分发（handleMessage）</text>
+  <rect x="20" y="32" width="720" height="26" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1" rx="4"/>
+  <text x="380" y="49" text-anchor="middle" font-size="11" font-weight="600" fill="currentColor">socket "message" 事件触发</text>
+  <line x1="380" y1="58" x2="380" y2="70" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar2)"/>
+  <rect x="20" y="70" width="720" height="26" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1" rx="4"/>
+  <text x="380" y="87" text-anchor="middle" font-size="11" fill="#64748b">解析 JSON  →  validateRequestFrame (Ajv) 校验帧结构   <tspan font-size="10" fill="#94a3b8">:1614-1620</tspan></text>
+  <line x1="380" y1="96" x2="380" y2="108" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar2)"/>
+  <rect x="20" y="108" width="720" height="26" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1" rx="4"/>
+  <text x="380" y="125" text-anchor="middle" font-size="11" fill="#64748b">logWs("in","req",{connId,id,method})   →   检查 auth generation（若已轮换 → close 4001）   <tspan font-size="10" fill="#94a3b8">:1622-1637</tspan></text>
+  <line x1="380" y1="134" x2="380" y2="146" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar2)"/>
+  <rect x="20" y="146" width="720" height="26" fill="#fed7aa" stroke="#ea580c" stroke-width="1.2" rx="4"/>
+  <text x="380" y="163" text-anchor="middle" font-size="11" fill="#64748b">构造 respond(ok, payload, error) 回调   <tspan font-size="10" fill="#94a3b8">:1638-1681</tspan></text>
+  <line x1="380" y1="172" x2="380" y2="184" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar2)"/>
+  <rect x="20" y="184" width="720" height="26" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1" rx="4"/>
+  <text x="380" y="201" text-anchor="middle" font-size="11" fill="#64748b">动态 import server-methods.js</text>
+  <line x1="380" y1="210" x2="380" y2="222" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar2)"/>
+  <rect x="20" y="222" width="720" height="38" fill="#ddd6fe" stroke="#7c3aed" stroke-width="1.5" rx="4"/>
+  <text x="380" y="240" text-anchor="middle" font-size="12" font-weight="700" fill="#7c3aed">handleGatewayRequest({ req, respond, client, methodRegistry, context })</text>
+  <text x="380" y="256" text-anchor="middle" font-size="10" fill="#64748b">五道关卡分发   <tspan fill="#94a3b8">:1683-1697</tspan></text>
+  <line x1="380" y1="260" x2="380" y2="272" stroke="#94a3b8" stroke-width="1.2" stroke-dasharray="3,2" marker-end="url(#ar2)"/>
+  <text x="380" y="284" text-anchor="middle" font-size="10" fill="#94a3b8">→ res 帧回传给客户端</text>
+</svg>
+<span class="figure-caption">图 R2.2 ｜ 握手后消息分帧与分发：JSON 解析 → Ajv 校验 → auth 检查 → respond 回调 → handleGatewayRequest</span>
+
+<details>
+<summary>ASCII 原版</summary>
+
 ```
 socket "message"
   → 解析 JSON
@@ -321,7 +435,58 @@ socket "message"
         methodRegistry: getMethodRegistry(), context }) :1683-1697
 ```
 
+</details>
+
 真正的分发在 `handleGatewayRequest`（`src/gateway/server-methods.ts:179-250`）。它是一个**五道关卡**的管线：
+
+<svg viewBox="0 0 760 400" xmlns="http://www.w3.org/2000/svg" class="figure-svg" role="img" aria-label="handleGatewayRequest 五道关卡分发管线">
+  <defs>
+    <marker id="ar3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/>
+    </marker>
+    <marker id="ar3r" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#ef4444"/>
+    </marker>
+  </defs>
+  <text x="380" y="20" text-anchor="middle" font-size="14" font-weight="700" fill="currentColor">handleGatewayRequest —— 五道关卡</text>
+  <rect x="220" y="32" width="320" height="28" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1" rx="4"/>
+  <text x="380" y="50" text-anchor="middle" font-size="11" font-weight="600" fill="currentColor">handleGatewayRequest(req)</text>
+  <line x1="380" y1="60" x2="380" y2="72" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar3)"/>
+  <rect x="60" y="72" width="460" height="42" fill="#fef2f2" stroke="#ef4444" stroke-width="1.2" rx="4"/>
+  <text x="290" y="89" text-anchor="middle" font-size="11" font-weight="600" fill="#ef4444">关卡1  authorizeGatewayMethod   :185-189</text>
+  <text x="290" y="107" text-anchor="middle" font-size="10" fill="#64748b">scope 鉴权 — 权限不足 → respond(false, authError)</text>
+  <line x1="560" y1="93" x2="700" y2="93" stroke="#ef4444" stroke-width="1.2" stroke-dasharray="4,2" marker-end="url(#ar3r)"/>
+  <text x="630" y="89" font-size="9" fill="#ef4444">拒绝</text>
+  <line x1="290" y1="114" x2="290" y2="128" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar3)"/>
+  <rect x="60" y="128" width="460" height="42" fill="#fef2f2" stroke="#f97316" stroke-width="1.2" rx="4"/>
+  <text x="290" y="145" text-anchor="middle" font-size="11" font-weight="600" fill="#c2410c">关卡2  unavailableGatewayMethods.has(method)?   :190-201</text>
+  <text x="290" y="163" text-anchor="middle" font-size="10" fill="#64748b">启动期不可用 → respond(false, UNAVAILABLE, retryable: true, retryAfterMs)</text>
+  <line x1="560" y1="149" x2="700" y2="149" stroke="#f97316" stroke-width="1.2" stroke-dasharray="4,2" marker-end="url(#ar3r)"/>
+  <text x="630" y="145" font-size="9" fill="#f97316">可重试</text>
+  <line x1="290" y1="170" x2="290" y2="184" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar3)"/>
+  <rect x="60" y="184" width="460" height="42" fill="#fef2f2" stroke="#f97316" stroke-width="1.2" rx="4"/>
+  <text x="290" y="201" text-anchor="middle" font-size="11" font-weight="600" fill="#c2410c">关卡3  isControlPlaneWrite(method)?   :202-227</text>
+  <text x="290" y="219" text-anchor="middle" font-size="10" fill="#64748b">控制平面写限流（3 次 / 60s）超限 → respond(false)</text>
+  <line x1="560" y1="205" x2="700" y2="205" stroke="#f97316" stroke-width="1.2" stroke-dasharray="4,2" marker-end="url(#ar3r)"/>
+  <text x="630" y="201" font-size="9" fill="#f97316">限流</text>
+  <line x1="290" y1="226" x2="290" y2="240" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar3)"/>
+  <rect x="60" y="240" width="460" height="42" fill="#fef2f2" stroke="#ef4444" stroke-width="1.2" rx="4"/>
+  <text x="290" y="257" text-anchor="middle" font-size="11" font-weight="600" fill="#ef4444">关卡4  methodRegistry.getHandler(method)   :228-236</text>
+  <text x="290" y="275" text-anchor="middle" font-size="10" fill="#64748b">未知方法 → respond(false, INVALID_REQUEST)</text>
+  <line x1="560" y1="261" x2="700" y2="261" stroke="#ef4444" stroke-width="1.2" stroke-dasharray="4,2" marker-end="url(#ar3r)"/>
+  <text x="630" y="257" font-size="9" fill="#ef4444">拒绝</text>
+  <line x1="290" y1="282" x2="290" y2="296" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar3)"/>
+  <rect x="60" y="296" width="460" height="56" fill="#99f6e4" stroke="#0d9488" stroke-width="1.5" rx="4"/>
+  <text x="290" y="314" text-anchor="middle" font-size="11" font-weight="700" fill="#0d9488">关卡5  withPluginRuntimeGatewayRequestScope   :237-249</text>
+  <text x="290" y="332" text-anchor="middle" font-size="10" fill="#64748b">handler({ req, params, client, respond, context }) 执行</text>
+  <text x="290" y="346" text-anchor="middle" font-size="10" fill="#64748b">请求作用域允许 subagent 反向 dispatch 回 Gateway</text>
+  <line x1="290" y1="352" x2="290" y2="370" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar3)"/>
+  <text x="290" y="384" text-anchor="middle" font-size="10" fill="#94a3b8">→ respond(true, payload)  →  res 帧回传</text>
+</svg>
+<span class="figure-caption">图 R2.3 ｜ handleGatewayRequest 五道关卡：scope 鉴权 → 启动期可用 → 写限流 → 方法解析 → 请求作用域执行</span>
+
+<details>
+<summary>ASCII 原版</summary>
 
 ```
 handleGatewayRequest(req)
@@ -341,6 +506,8 @@ handleGatewayRequest(req)
   └─ 关卡5  withPluginRuntimeGatewayRequestScope(            :237-249
               () => handler({ req, params, client, respond, context }))
 ```
+
+</details>
 
 每道关卡都对应一个真实威胁：
 
@@ -439,6 +606,53 @@ export type AgentEventHandlerOptions = {
 
 「协调 agent 响应与 channel 投递」这句话的含义，体现在 `server-chat.ts` 处理一个 agent 事件时同时面向**两类下游**：
 
+<svg viewBox="0 0 760 400" xmlns="http://www.w3.org/2000/svg" class="figure-svg" role="img" aria-label="server-chat 协调 agent 响应与 channel 投递的双向数据流">
+  <defs>
+    <marker id="ar4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/>
+    </marker>
+  </defs>
+  <text x="380" y="20" text-anchor="middle" font-size="14" font-weight="700" fill="currentColor">server-chat：agent 事件 → 双向投递</text>
+  <rect x="220" y="32" width="320" height="30" fill="#ddd6fe" stroke="#7c3aed" stroke-width="1.5" rx="5"/>
+  <text x="380" y="52" text-anchor="middle" font-size="12" font-weight="700" fill="#7c3aed">agent 产生事件（delta / tool / lifecycle）</text>
+  <line x1="380" y1="62" x2="380" y2="76" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar4)"/>
+  <rect x="160" y="76" width="440" height="30" fill="#fed7aa" stroke="#ea580c" stroke-width="1.5" rx="5"/>
+  <text x="380" y="96" text-anchor="middle" font-size="12" font-weight="700" fill="#ea580c">createAgentEventHandler 处理</text>
+  <line x1="200" y1="106" x2="140" y2="130" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar4)"/>
+  <line x1="380" y1="106" x2="380" y2="130" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar4)"/>
+  <line x1="560" y1="106" x2="620" y2="130" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar4)"/>
+  <rect x="20" y="130" width="220" height="50" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.2" rx="4"/>
+  <text x="130" y="150" text-anchor="middle" font-size="11" font-weight="600" fill="currentColor">节流判断</text>
+  <text x="130" y="166" text-anchor="middle" font-size="10" fill="#64748b">resolveBroadcastDelta</text>
+  <rect x="270" y="130" width="220" height="50" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.2" rx="4"/>
+  <text x="380" y="150" text-anchor="middle" font-size="11" font-weight="600" fill="currentColor">确定接收者</text>
+  <text x="380" y="166" text-anchor="middle" font-size="10" fill="#64748b">resolveSessionKeyForRun + 三个订阅注册表</text>
+  <rect x="520" y="130" width="220" height="50" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.2" rx="4"/>
+  <text x="630" y="150" text-anchor="middle" font-size="11" font-weight="600" fill="currentColor">翻译事件</text>
+  <text x="630" y="166" text-anchor="middle" font-size="10" fill="#64748b">AgentEvent → Gateway event</text>
+  <line x1="130" y1="180" x2="280" y2="210" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar4)"/>
+  <line x1="380" y1="180" x2="380" y2="210" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar4)"/>
+  <line x1="630" y1="180" x2="480" y2="210" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar4)"/>
+  <line x1="280" y1="225" x2="130" y2="260" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar4)"/>
+  <line x1="480" y1="225" x2="630" y2="260" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar4)"/>
+  <rect x="160" y="210" width="440" height="30" fill="#f1f5f9" stroke="#94a3b8" stroke-width="1" rx="4"/>
+  <text x="380" y="230" text-anchor="middle" font-size="11" fill="#64748b">合并输出</text>
+  <rect x="20" y="260" width="310" height="50" fill="#99f6e4" stroke="#0d9488" stroke-width="1.5" rx="5"/>
+  <text x="175" y="280" text-anchor="middle" font-size="11" font-weight="700" fill="#0d9488">broadcast / broadcastToConnIds</text>
+  <text x="175" y="298" text-anchor="middle" font-size="10" fill="#64748b">WS 客户端（Control UI / CLI / 原生 app）</text>
+  <rect x="430" y="260" width="310" height="50" fill="#ddd6fe" stroke="#7c3aed" stroke-width="1.5" rx="5"/>
+  <text x="585" y="280" text-anchor="middle" font-size="11" font-weight="700" fill="#7c3aed">nodeSendToSession</text>
+  <text x="585" y="298" text-anchor="middle" font-size="10" fill="#64748b">发给 session 关联的节点设备</text>
+  <line x1="585" y1="310" x2="585" y2="330" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar4)"/>
+  <rect x="430" y="330" width="310" height="40" fill="#fed7aa" stroke="#ea580c" stroke-width="1.2" rx="4"/>
+  <text x="585" y="348" text-anchor="middle" font-size="11" font-weight="600" fill="#ea580c">渠道投递 (auto-reply/reply)</text>
+  <text x="585" y="364" text-anchor="middle" font-size="10" fill="#64748b">把最终回复发回原 IM 渠道</text>
+</svg>
+<span class="figure-caption">图 R2.4 ｜ server-chat 双向投递：agent 事件经节流判断、接收者确定、事件翻译后，分别广播给 WS 客户端和节点设备/渠道</span>
+
+<details>
+<summary>ASCII 原版</summary>
+
 ```
               agent 产生事件 (delta / tool / lifecycle)
                           │
@@ -461,6 +675,8 @@ export type AgentEventHandlerOptions = {
                                    下游：渠道投递 (auto-reply/reply)
                                    把最终回复发回原 IM 渠道
 ```
+
+</details>
 
 关键点：
 
@@ -563,6 +779,73 @@ export const GatewayFrameSchema = Type.Union(
 
 把本章串起来，一个客户端与 Gateway 交互的完整图景是：
 
+<svg viewBox="0 0 760 440" xmlns="http://www.w3.org/2000/svg" class="figure-svg" role="img" aria-label="Gateway 控制平面完整交互生命周期：启动、连接、请求、事件、关闭">
+  <defs>
+    <marker id="ar5" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/>
+    </marker>
+  </defs>
+  <text x="380" y="20" text-anchor="middle" font-size="14" font-weight="700" fill="currentColor">Gateway 控制平面完整生命周期</text>
+  <rect x="20" y="32" width="720" height="54" fill="#fed7aa" stroke="#ea580c" stroke-width="1.5" rx="6"/>
+  <text x="50" y="50" font-size="11" font-weight="700" fill="#ea580c">启动</text>
+  <text x="130" y="50" font-size="10" fill="#64748b">startGatewayServer</text>
+  <text x="280" y="50" font-size="10" fill="#94a3b8">→</text>
+  <text x="300" y="50" font-size="10" fill="#64748b">十二阶段</text>
+  <text x="390" y="50" font-size="10" fill="#94a3b8">→</text>
+  <text x="410" y="50" font-size="10" fill="#0d9488" font-weight="600">http.bound</text>
+  <text x="510" y="50" font-size="10" fill="#94a3b8">→</text>
+  <text x="530" y="50" font-size="10" fill="#0d9488" font-weight="600">ready</text>
+  <text x="280" y="72" font-size="10" fill="#64748b">先挂 WS 处理器（⑨），再开端口（⑩），sidecar 就绪后标 ready（⑪）</text>
+  <line x1="380" y1="86" x2="380" y2="98" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar5)"/>
+  <rect x="20" y="98" width="720" height="66" fill="#99f6e4" stroke="#0d9488" stroke-width="1.5" rx="6"/>
+  <text x="50" y="116" font-size="11" font-weight="700" fill="#0d9488">连接</text>
+  <text x="130" y="116" font-size="10" fill="#64748b">TCP 握手</text>
+  <text x="220" y="116" font-size="10" fill="#94a3b8">→</text>
+  <text x="240" y="116" font-size="10" fill="#64748b">connect.challenge(nonce)</text>
+  <text x="130" y="136" font-size="10" fill="#64748b">→ 客户端发 req{method:"connect", ConnectParams}</text>
+  <text x="130" y="154" font-size="10" fill="#64748b">→ 版本协商 + auth + scope</text>
+  <text x="340" y="154" font-size="10" fill="#94a3b8">→</text>
+  <text x="360" y="154" font-size="10" fill="#0d9488" font-weight="600">hello-ok(features / auth / policy)</text>
+  <line x1="380" y1="164" x2="380" y2="176" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar5)"/>
+  <rect x="20" y="176" width="720" height="78" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.5" rx="6"/>
+  <text x="50" y="194" font-size="11" font-weight="700" fill="currentColor">请求</text>
+  <text x="130" y="194" font-size="10" fill="#64748b">客户端发 req{method, params}</text>
+  <text x="130" y="212" font-size="10" fill="#64748b">→ Ajv 校验帧</text>
+  <text x="230" y="212" font-size="10" fill="#94a3b8">→</text>
+  <text x="250" y="212" font-size="10" fill="#64748b">handleGatewayRequest 五道关卡（scope / 启动期可用 / 写限流 / 方法解析 / 请求作用域）</text>
+  <text x="130" y="230" font-size="10" fill="#64748b">→ methodRegistry.getHandler</text>
+  <text x="310" y="230" font-size="10" fill="#94a3b8">→</text>
+  <text x="330" y="230" font-size="10" fill="#64748b">handler 执行</text>
+  <text x="430" y="230" font-size="10" fill="#94a3b8">→</text>
+  <text x="450" y="230" font-size="10" fill="#64748b">res{ok, payload | error}</text>
+  <line x1="380" y1="254" x2="380" y2="266" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar5)"/>
+  <rect x="20" y="266" width="720" height="78" fill="#ddd6fe" stroke="#7c3aed" stroke-width="1.5" rx="6"/>
+  <text x="50" y="284" font-size="11" font-weight="700" fill="#7c3aed">事件</text>
+  <text x="130" y="284" font-size="10" fill="#64748b">agent 产生事件</text>
+  <text x="130" y="302" font-size="10" fill="#64748b">→ server-chat: createAgentEventHandler 翻译 + 节流</text>
+  <text x="130" y="320" font-size="10" fill="#64748b">→ 按 sessionKey 查三个订阅注册表</text>
+  <text x="130" y="338" font-size="10" fill="#64748b">→ broadcast / broadcastToConnIds / nodeSendToSession</text>
+  <text x="490" y="338" font-size="10" fill="#94a3b8">→</text>
+  <text x="510" y="338" font-size="10" fill="#7c3aed" font-weight="600">event 帧推给该收到的客户端</text>
+  <line x1="380" y1="344" x2="380" y2="356" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar5)"/>
+  <rect x="20" y="356" width="720" height="66" fill="#f1f5f9" stroke="#94a3b8" stroke-width="1.5" rx="6"/>
+  <text x="50" y="374" font-size="11" font-weight="700" fill="currentColor">关闭</text>
+  <text x="130" y="374" font-size="10" fill="#64748b">close()</text>
+  <text x="190" y="374" font-size="10" fill="#94a3b8">→</text>
+  <text x="210" y="374" font-size="10" fill="#64748b">stop sidecars</text>
+  <text x="300" y="374" font-size="10" fill="#94a3b8">→</text>
+  <text x="320" y="374" font-size="10" fill="#64748b">gateway_stop hook</text>
+  <text x="440" y="374" font-size="10" fill="#94a3b8">→</text>
+  <text x="460" y="374" font-size="10" fill="#64748b">close prelude</text>
+  <text x="130" y="410" font-size="10" fill="#64748b">→ drain sessions（优雅排空进行中会话）</text>
+  <text x="370" y="410" font-size="10" fill="#94a3b8">→</text>
+  <text x="390" y="410" font-size="10" fill="#64748b">释放全部句柄（HTTP / WS / cron / channels / timers）</text>
+</svg>
+<span class="figure-caption">图 R2.5 ｜ Gateway 控制平面完整生命周期：启动十二阶段 → 连接握手 → 请求五道关卡 → 事件分发 → 优雅关闭</span>
+
+<details>
+<summary>ASCII 原版</summary>
+
 ```
 启动：startGatewayServer → 十二阶段 → http.bound → ready
 
@@ -586,6 +869,8 @@ export const GatewayFrameSchema = Type.Union(
 关闭：close() → stop sidecars → gateway_stop hook
       → close prelude → drain sessions → 释放全部句柄
 ```
+
+</details>
 
 Gateway 控制平面的核心设计思想可以归纳为四点：
 

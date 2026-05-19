@@ -19,6 +19,50 @@
 5. 整个 UI 的组件是怎么组织的？
 6. 用户点「发送」之后，到接收回 agent 事件流，前端代码走了哪条路？
 
+<svg viewBox="0 0 760 320" xmlns="http://www.w3.org/2000/svg" class="figure-svg" role="img" aria-label="OpenClaw Control UI 浏览器端架构：入口加载、WebSocket 通信与渲染层三大模块">
+  <defs>
+    <marker id="ar1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/>
+    </marker>
+  </defs>
+  <rect x="10" y="10" width="738" height="296" rx="8" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.2"/>
+  <text x="380" y="30" text-anchor="middle" font-size="13" font-weight="700" fill="currentColor">浏览器</text>
+  <rect x="30" y="42" width="700" height="52" rx="5" fill="white" stroke="#cbd5e1" stroke-width="1"/>
+  <text x="60" y="60" font-size="11" font-weight="600" fill="currentColor">ui/index.html</text>
+  <line x1="160" y1="60" x2="196" y2="60" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar1)"/>
+  <text x="200" y="60" font-size="11" font-weight="600" fill="currentColor">ui/src/main.ts</text>
+  <line x1="308" y1="60" x2="344" y2="60" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar1)"/>
+  <text x="348" y="60" font-size="11" font-weight="600" fill="currentColor">ui/src/ui/app.ts</text>
+  <text x="200" y="83" font-size="10" fill="#64748b">注册 Service Worker</text>
+  <text x="348" y="83" font-size="10" fill="#0d9488">&lt;openclaw-app&gt; 自定义元素 (LitElement)</text>
+  <rect x="30" y="106" width="340" height="90" rx="5" fill="white" stroke="#0ea5e9" stroke-width="1.2"/>
+  <text x="200" y="124" text-anchor="middle" font-size="12" font-weight="700" fill="#0ea5e9">GatewayBrowserClient</text>
+  <text x="200" y="138" text-anchor="middle" font-size="10" fill="#64748b">ui/src/ui/gateway.ts</text>
+  <rect x="50" y="146" width="300" height="22" rx="3" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1"/>
+  <text x="200" y="161" text-anchor="middle" font-size="10" font-weight="600" fill="#0ea5e9">WebSocket ⇄ gateway</text>
+  <text x="50" y="180" font-size="10" fill="#64748b">├─ req/res 帧 → RPC（chat.send / chat.abort / sessions.* ...）</text>
+  <text x="50" y="194" font-size="10" fill="#64748b">└─ event 帧 → handleGatewayEvent → handleAgentEvent / handleChatEvent</text>
+  <rect x="390" y="106" width="340" height="90" rx="5" fill="white" stroke="#ea580c" stroke-width="1.2"/>
+  <text x="560" y="124" text-anchor="middle" font-size="12" font-weight="700" fill="#ea580c">渲染层</text>
+  <text x="560" y="138" text-anchor="middle" font-size="10" fill="#64748b">app-render.ts + views/chat.ts + chat/*.ts</text>
+  <text x="410" y="158" font-size="10" fill="#64748b">markdown.ts</text>
+  <text x="530" y="158" font-size="10" fill="#94a3b8">markdown-it + DOMPurify</text>
+  <text x="410" y="174" font-size="10" fill="#64748b">tool-display.ts</text>
+  <text x="530" y="174" font-size="10" fill="#94a3b8">工具卡片</text>
+  <text x="410" y="190" font-size="10" fill="#64748b">canvas-url.ts</text>
+  <text x="530" y="190" font-size="10" fill="#94a3b8">Canvas iframe 富面板</text>
+  <rect x="30" y="218" width="700" height="68" rx="5" fill="white" stroke="#7c3aed" stroke-width="1.2"/>
+  <text x="380" y="238" text-anchor="middle" font-size="12" font-weight="700" fill="#7c3aed">app-gateway.ts — 连接编排 + 事件分发</text>
+  <text x="380" y="256" text-anchor="middle" font-size="10" fill="#64748b">handleGatewayEvent: evt.event==="agent" → handleAgentEvent　　evt.event==="chat" → handleChatEvent</text>
+  <text x="380" y="274" text-anchor="middle" font-size="10" fill="#94a3b8">controllers/chat.ts（聊天 RPC）　　app-tool-stream.ts（工具流状态）</text>
+  <line x1="200" y1="196" x2="200" y2="218" stroke="#94a3b8" stroke-width="1" stroke-dasharray="3,2"/>
+  <line x1="560" y1="196" x2="560" y2="218" stroke="#94a3b8" stroke-width="1" stroke-dasharray="3,2"/>
+</svg>
+<span class="figure-caption">图 R12.1 ｜ Control UI 浏览器端架构：入口加载链、WebSocket 通信层与渲染层三大模块</span>
+
+<details>
+<summary>ASCII 原版</summary>
+
 ```
 浏览器
   │
@@ -36,6 +80,8 @@
         tool-display.ts（工具卡片）
         canvas-url.ts（Canvas iframe 富面板）
 ```
+
+</details>
 
 涉及的关键文件：
 
@@ -645,6 +691,82 @@ export function resolveToolDisplay(params: { name?: string; args?: unknown; ... 
 
 把本章串起来，跟踪用户点「发送」之后前端发生了什么：
 
+<svg viewBox="0 0 760 640" xmlns="http://www.w3.org/2000/svg" class="figure-svg" role="img" aria-label="chat.send 完整前端旅程：从用户点发送到 Lit 渲染更新的 10 个步骤">
+  <defs>
+    <marker id="ar4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/>
+    </marker>
+    <marker id="ar5" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#0ea5e9"/>
+    </marker>
+    <marker id="ar6" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#7c3aed"/>
+    </marker>
+  </defs>
+  <line x1="60" y1="28" x2="60" y2="622" stroke="#cbd5e1" stroke-width="1.5"/>
+  <circle cx="60" cy="40" r="11" fill="#ea580c"/>
+  <text x="60" y="44" text-anchor="middle" font-size="10" font-weight="700" fill="white">1</text>
+  <rect x="82" y="26" width="380" height="28" rx="4" fill="#fed7aa" stroke="#ea580c" stroke-width="1.2"/>
+  <text x="272" y="44" text-anchor="middle" font-size="11" font-weight="600" fill="#ea580c">用户在 composer 输入文本、点发送</text>
+  <line x1="60" y1="54" x2="60" y2="74" stroke="#cbd5e1" stroke-width="1.5" marker-end="url(#ar4)"/>
+  <circle cx="60" cy="88" r="11" fill="#ea580c"/>
+  <text x="60" y="92" text-anchor="middle" font-size="10" font-weight="700" fill="white">2</text>
+  <rect x="82" y="74" width="480" height="76" rx="4" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.2"/>
+  <text x="322" y="91" text-anchor="middle" font-size="11" font-weight="600" fill="currentColor">sendChatMessage(state, message, attachments)</text>
+  <text x="322" y="105" text-anchor="middle" font-size="10" fill="#64748b">controllers/chat.ts:483　　组装 contentBlocks（text / image / attachment）</text>
+  <text x="322" y="119" text-anchor="middle" font-size="10" fill="#64748b">state.chatMessages = [...旧, {role:"user", ...}]　→　乐观渲染（零延迟反馈）</text>
+  <text x="322" y="133" text-anchor="middle" font-size="10" fill="#64748b">runId = generateUUID()　　chatSending = true　　chatStream = ""</text>
+  <line x1="60" y1="150" x2="60" y2="170" stroke="#cbd5e1" stroke-width="1.5" marker-end="url(#ar4)"/>
+  <circle cx="60" cy="184" r="11" fill="#ea580c"/>
+  <text x="60" y="188" text-anchor="middle" font-size="10" font-weight="700" fill="white">3</text>
+  <rect x="82" y="170" width="480" height="60" rx="4" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.2"/>
+  <text x="322" y="187" text-anchor="middle" font-size="11" font-weight="600" fill="currentColor">requestChatSend(state, {message, attachments, runId})</text>
+  <text x="322" y="201" text-anchor="middle" font-size="10" fill="#64748b">controllers/chat.ts:416　　client.request("chat.send", {..., idempotencyKey: runId})</text>
+  <text x="322" y="216" text-anchor="middle" font-size="10" fill="#94a3b8">idempotencyKey 保证重发不被服务端执行两次</text>
+  <line x1="60" y1="230" x2="60" y2="250" stroke="#0ea5e9" stroke-width="1.5" marker-end="url(#ar5)"/>
+  <circle cx="60" cy="264" r="11" fill="#0ea5e9"/>
+  <text x="60" y="268" text-anchor="middle" font-size="10" font-weight="700" fill="white">4</text>
+  <rect x="82" y="250" width="480" height="56" rx="4" fill="#f0f9ff" stroke="#0ea5e9" stroke-width="1.2"/>
+  <text x="322" y="267" text-anchor="middle" font-size="11" font-weight="600" fill="#0ea5e9">GatewayBrowserClient.request → requestOnSocket</text>
+  <text x="322" y="281" text-anchor="middle" font-size="10" fill="#64748b">gateway.ts:876　　frame = { type:"req", id, method:"chat.send", params }</text>
+  <text x="322" y="295" text-anchor="middle" font-size="10" fill="#64748b">pending.set(id, {resolve, reject})　　ws.send(JSON.stringify(frame))</text>
+  <rect x="82" y="316" width="480" height="28" rx="4" fill="#0ea5e9"/>
+  <text x="322" y="334" text-anchor="middle" font-size="11" font-weight="700" fill="white">WebSocket → gateway（第 11 章）</text>
+  <line x1="60" y1="306" x2="60" y2="316" stroke="#0ea5e9" stroke-width="1.5"/>
+  <line x1="60" y1="344" x2="60" y2="364" stroke="#0ea5e9" stroke-width="1.5" marker-end="url(#ar5)"/>
+  <circle cx="60" cy="378" r="11" fill="#0ea5e9"/>
+  <text x="60" y="382" text-anchor="middle" font-size="10" font-weight="700" fill="white">5</text>
+  <rect x="82" y="364" width="480" height="56" rx="4" fill="#f0f9ff" stroke="#0ea5e9" stroke-width="1.2"/>
+  <text x="322" y="381" text-anchor="middle" font-size="11" font-weight="600" fill="#0ea5e9">gateway 流式回推 event 帧</text>
+  <text x="322" y="395" text-anchor="middle" font-size="10" fill="#64748b">event "agent" (stream="assistant", data.text/delta)</text>
+  <text x="322" y="409" text-anchor="middle" font-size="10" fill="#64748b">event "agent" (stream="tool", data.phase)　　event "chat" (state="delta" | "final")</text>
+  <line x1="60" y1="420" x2="60" y2="440" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#ar4)"/>
+  <circle cx="60" cy="454" r="11" fill="#64748b"/>
+  <text x="60" y="458" text-anchor="middle" font-size="10" font-weight="700" fill="white">6</text>
+  <rect x="82" y="440" width="480" height="28" rx="4" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.2"/>
+  <text x="322" y="457" text-anchor="middle" font-size="11" font-weight="600" fill="currentColor">GatewayBrowserClient.handleMessage　gateway.ts:771</text>
+  <text x="322" y="469" text-anchor="middle" font-size="10" fill="#64748b">type==="event" → 校验 seq → onEvent + eventListeners</text>
+  <line x1="60" y1="468" x2="60" y2="488" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#ar4)"/>
+  <circle cx="60" cy="502" r="11" fill="#64748b"/>
+  <text x="60" y="506" text-anchor="middle" font-size="10" font-weight="700" fill="white">7</text>
+  <rect x="82" y="488" width="480" height="42" rx="4" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.2"/>
+  <text x="322" y="505" text-anchor="middle" font-size="11" font-weight="600" fill="currentColor">app-gateway.ts onEvent → handleGatewayEvent　app-gateway.ts:632</text>
+  <text x="322" y="519" text-anchor="middle" font-size="10" fill="#64748b">evt.event==="agent" → handleAgentEvent（工具流 / 生命周期）　　evt.event==="chat" → handleChatEvent</text>
+  <line x1="60" y1="530" x2="60" y2="550" stroke="#7c3aed" stroke-width="1.5" marker-end="url(#ar6)"/>
+  <circle cx="60" cy="564" r="11" fill="#7c3aed"/>
+  <text x="60" y="568" text-anchor="middle" font-size="10" font-weight="700" fill="white">8</text>
+  <rect x="82" y="550" width="480" height="28" rx="4" fill="#f5f3ff" stroke="#7c3aed" stroke-width="1.2"/>
+  <text x="322" y="567" text-anchor="middle" font-size="11" font-weight="600" fill="#7c3aed">handleChatEvent: state==="delta" → chatStream = next</text>
+  <text x="322" y="580" text-anchor="middle" font-size="10" fill="#64748b">@state 变化 → Lit 重渲染 → renderStreamingGroup 实时显示打字</text>
+  <rect x="82" y="596" width="480" height="28" rx="4" fill="#f5f3ff" stroke="#7c3aed" stroke-width="1.2"/>
+  <text x="322" y="613" text-anchor="middle" font-size="11" font-weight="600" fill="#7c3aed">state==="final": chatMessages 追加定稿 · chatStream 清空 · chatSending=false</text>
+  <line x1="60" y1="580" x2="60" y2="596" stroke="#7c3aed" stroke-width="1.5"/>
+</svg>
+<span class="figure-caption">图 R12.2 ｜ chat.send 完整前端旅程：从用户点发送到 Lit 响应式重渲染的 10 步调用链</span>
+
+<details>
+<summary>ASCII 原版</summary>
+
 ```
 1. 用户在 composer 输入文本、点发送
         │
@@ -691,6 +813,8 @@ export function resolveToolDisplay(params: { name?: string; args?: unknown; ... 
 10. handleAgentEvent: 若有工具事件 → final 后 loadChatHistory 重载
          以持久化的工具结果替换已清空的流式状态   ui/src/ui/app-gateway.ts (handleTerminalChatEvent)
 ```
+
+</details>
 
 注意第 2 步的**乐观渲染**：用户消息在 RPC 还没发出之前就立刻进 `chatMessages` 显示出来，界面零延迟有反馈。`chat.send` 的 `idempotencyKey` 用的就是客户端 `runId`——同一条消息重发不会被服务端执行两次。第 8 步的「打字效果」纯粹是 `@state() chatStream` 反复赋值 + Lit 自动重渲染的副产物，没有任何手写的动画代码。
 
