@@ -1,0 +1,13 @@
+{
+  "project": "pi",
+  "versions": [
+    {
+      "dir": "v4868222e",
+      "label": "v4868222e",
+      "commit": "4868222e",
+      "target_ref": "4868222e",
+      "date": "2026-05-20",
+      "latest": true
+    }
+  ]
+}

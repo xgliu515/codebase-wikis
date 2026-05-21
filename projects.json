@@ -2,6 +2,15 @@
   "title": "Codebase Wikis",
   "projects": [
     {
+      "dir": "pi",
+      "name": "Pi",
+      "github": "earendil-works/pi",
+      "tagline": "Pi 源码中文参考 Wiki —— earendil-works 的 agent harness mono-repo，含自扩展编码 agent、agent runtime、多 provider LLM 统一接口与差分渲染 Terminal UI 库。",
+      "versions": 1,
+      "latest": "v4868222e",
+      "updated": "2026-05-20"
+    },
+    {
       "dir": "openclaw",
       "name": "OpenClaw",
       "github": "openclaw/openclaw",
