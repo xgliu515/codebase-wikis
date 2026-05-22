@@ -880,3 +880,7 @@ Gateway 控制平面的核心设计思想可以归纳为四点：
 4. **内存注册表 + 节流的事件分发**：`server-chat-state` 的注册表都是纯内存、带 TTL 自清理；`server-chat` 在 agent 世界和 Gateway 世界之间做双向翻译，并用节流防止流式输出淹没下游。
 
 下一章将进入第①层与第③层的交界——入站消息管线（`auto-reply/`）：一条 IM 消息到达渠道插件后，如何被去重、路由、节流，最终触发一次 agent run。本章 §6 `server-chat` 负责把 agent 的输出送回去，第 03 章则讲清楚输入是怎么进来的。
+
+## 延伸阅读
+
+- [Cron 定时任务实现](./02a-cron-scheduler.md) —— openclaw 的定时任务是如何实现的
