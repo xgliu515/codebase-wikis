@@ -758,3 +758,86 @@ body {
 @media (max-width: 720px) {
   .gloss-panel { width: 100vw; max-width: 100vw; }
 }
+/* ============== CHAPTER ADDENDA (sidebar nesting) ============== */
+.ch-row {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+}
+.ch-row > .ch-item {
+  flex: 1;
+  min-width: 0;
+}
+.ch-toggle {
+  background: transparent;
+  border: none;
+  color: var(--text-faint);
+  cursor: pointer;
+  width: 22px;
+  font-size: 11px;
+  line-height: 1;
+  padding: 0;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: color .12s, background .12s;
+  flex-shrink: 0;
+}
+.ch-toggle:hover {
+  color: var(--accent);
+  background: var(--bg-soft);
+}
+.ch-children {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin: 2px 0 4px 18px;
+  padding-left: 8px;
+  border-left: 1px solid var(--border);
+}
+.ch-children[hidden] {
+  display: none;
+}
+.ch-item.addendum {
+  font-size: 13px;
+  padding: 5px 10px;
+  color: var(--text-soft);
+}
+.ch-item.addendum .ch-num {
+  font-size: 11px;
+  width: 12px;
+  color: var(--text-faint);
+}
+.ch-item.has-active-child:not(.active) {
+  background: var(--bg-soft);
+  color: var(--text);
+}
+
+/* Addendum banner at the top of an addendum page */
+.md .addendum-banner {
+  background: var(--accent-soft);
+  border: 1px solid var(--accent);
+  border-left-width: 3px;
+  border-radius: 6px;
+  padding: 10px 14px;
+  font-size: 13px;
+  color: var(--text-soft);
+  margin: 0 0 1.4em;
+}
+.md .addendum-banner em {
+  color: var(--text);
+  font-style: normal;
+  font-weight: 600;
+}
+.md .addendum-banner a {
+  color: var(--accent);
+  text-decoration: none;
+  border-bottom: 1px dotted var(--accent);
+  margin-left: 8px;
+  white-space: nowrap;
+}
+.md .addendum-banner a:hover {
+  border-bottom-style: solid;
+}
+

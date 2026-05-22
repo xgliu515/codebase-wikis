@@ -79,8 +79,18 @@ export const TOURS = [
 
 export const TOUR_BY_ID = Object.fromEntries(TOURS.map(t => [t.id, t]));
 
-// 所有文档（章节 + tour），用于路由查找和搜索
-export const ALL_DOCS = [...CHAPTERS, ...TOURS];
+// 所有文档（章节 + addenda + tour），用于路由查找和搜索。
+// addenda 被平铺进 ALL_DOCS，每个 addendum 项额外带 parentId，便于内容渲染时回链。
+const FLATTENED_CHAPTERS = CHAPTERS.flatMap(c => {
+  const entries = [c];
+  if (Array.isArray(c.addenda)) {
+    for (const a of c.addenda) {
+      entries.push({ ...a, parentId: c.id, num: a.id.match(/^(\d+[a-z]?)/)?.[1] ?? c.num });
+    }
+  }
+  return entries;
+});
+export const ALL_DOCS = [...FLATTENED_CHAPTERS, ...TOURS];
 export const CHAPTER_BY_ID = Object.fromEntries(ALL_DOCS.map(c => [c.id, c]));
 
 // =========================================================

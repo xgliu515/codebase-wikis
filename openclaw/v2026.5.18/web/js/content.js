@@ -73,7 +73,10 @@ export async function loadChapter(chapterId, anchor, contentEl) {
 
   usedIds.clear();
   const html = marked.parse(md);
-  contentEl.innerHTML = `<div class="md">${html}</div>`;
+  const bannerHtml = (chap.parentId)
+    ? makeAddendumBanner(chap)
+    : '';
+  contentEl.innerHTML = `<div class="md">${bannerHtml}${html}</div>`;
 
   // 后处理：file:line 链接 + mermaid 渲染 + 术语高亮
   enhanceFileRefs(contentEl);
@@ -218,4 +221,16 @@ function extractToc(container) {
     items.push({ id: h.id, text, lvl });
   }
   return items;
+}
+
+// =========================================================
+// Addendum banner: shown at the top of an addendum page
+// =========================================================
+
+function makeAddendumBanner(chap) {
+  const parent = CHAPTER_BY_ID[chap.parentId];
+  if (!parent) return '';
+  const q = chap.question ? `<em>${escapeHTML(chap.question)}</em>` : '';
+  const link = `<a href="#/${parent.id}">↑ 回到 ${escapeHTML(parent.title)}</a>`;
+  return `<div class="addendum-banner">${q ? `本节回答:${q} · ` : ''}${link}</div>`;
 }
