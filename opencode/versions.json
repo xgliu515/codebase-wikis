@@ -1,0 +1,13 @@
+{
+  "project": "opencode",
+  "versions": [
+    {
+      "dir": "v1.15.10",
+      "label": "v1.15.10",
+      "commit": "d74d166ac",
+      "target_ref": "v1.15.10",
+      "date": "2026-05-23",
+      "latest": true
+    }
+  ]
+}

@@ -2,6 +2,15 @@
   "title": "Codebase Wikis",
   "projects": [
     {
+      "dir": "opencode",
+      "name": "opencode",
+      "github": "anomalyco/opencode",
+      "tagline": "opencode 源码中文参考 Wiki —— 开源的终端 AI 编码 Agent，TypeScript + Bun monorepo。",
+      "versions": 1,
+      "latest": "v1.15.10",
+      "updated": "2026-05-23"
+    },
+    {
       "dir": "pi",
       "name": "Pi",
       "github": "earendil-works/pi",
