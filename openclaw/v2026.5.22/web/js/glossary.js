@@ -6,10 +6,17 @@
 
 import { marked } from 'https://cdn.jsdelivr.net/npm/marked@15.0.4/lib/marked.esm.js';
 import { parseFileRef, makeCodeURL, escapeHTML } from './utils.js';
-import { STORAGE_PREFIX } from './chapters.js';
+import { STORAGE_PREFIX, CHAPTERS } from './chapters.js';
 import { T } from './strings.js';
 
 const STORAGE_KEY = `${STORAGE_PREFIX}-viewed-terms`;
+
+// Glossary 章节 id: 按约定 glossary 始终是最后一章, 文件名形如 `NN-glossary-and-faq.md`.
+// 优先按 id 后缀匹配, fallback 到 CHAPTERS 的最后一项。
+const GLOSSARY_CHAPTER = CHAPTERS.find(c => c.id.endsWith('-glossary-and-faq'))
+                         || CHAPTERS[CHAPTERS.length - 1]
+                         || { id: '12-glossary-and-faq' };
+const GLOSSARY_CHAPTER_ID = GLOSSARY_CHAPTER.id;
 
 // 解析得到的术语库：key 是规范化的术语名，value 是 {primary, variants, definition, codeLocation, html, slug}
 const TERMS = new Map();
@@ -26,7 +33,7 @@ let HISTORY = [];
 
 export async function initGlossary() {
   try {
-    const res = await fetch('12-glossary-and-faq.md', { cache: 'force-cache' });
+    const res = await fetch(`${GLOSSARY_CHAPTER_ID}.md`, { cache: 'force-cache' });
     const md = await res.text();
     parseGlossary(md);
     buildMatcher();
@@ -66,11 +73,12 @@ function parseGlossary(md) {
     let chineseName = '';
     let englishName = '';
     for (const line of body.split('\n')) {
-      const m = line.match(/^-\s*(英文原名|中文译名|定义|代码位置|Original name|Definition|Source)[：:]\s*(.*)$/);
+      // Accept optional **bold** wrappers around the label and `Code location` as a synonym for `Source`
+      const m = line.match(/^-\s*\*{0,2}(英文原名|中文译名|定义|代码位置|Original name|Definition|Source|Code location)\*{0,2}[：:]\s*(.*)$/);
       if (m) {
         const [, key, val] = m;
         if (key === '定义' || key === 'Definition') definition = val;
-        else if (key === '代码位置' || key === 'Source') codeLocation = val;
+        else if (key === '代码位置' || key === 'Source' || key === 'Code location') codeLocation = val;
         else if (key === '中文译名') chineseName = val;
         else if (key === '英文原名' || key === 'Original name') englishName = val;
       } else if (definition && line.trim() && !line.startsWith('- ')) {
@@ -346,7 +354,7 @@ function openTerm(key, fromHistory) {
     <div class="gloss-definition md">${defHtml}</div>
     ${locHtml ? `<div class="gloss-location md"><span class="gloss-meta">${T.gloss_source_label}</span>${locHtml}</div>` : ''}
     <div class="gloss-jump">
-      <a href="#/12-glossary-and-faq/${term.slug}">在术语表里查看完整条目 →</a>
+      <a href="#/${GLOSSARY_CHAPTER_ID}/${term.slug}">在术语表里查看完整条目 →</a>
     </div>
   `;
 
