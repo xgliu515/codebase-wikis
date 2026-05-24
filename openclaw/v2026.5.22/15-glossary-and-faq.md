@@ -12,402 +12,402 @@ There are no figures in this chapter. Use the search box and the in-line `file:l
 
 ### ACP (Agent Control Protocol)
 
-- **Definition**: A JSON-RPC dialect spoken between OpenClaw and external coding agents (Codex, Claude Code, Antigravity). ACP is OpenClaw's *out-bound* protocol to drive another agent runtime, separate from the gateway's own RPC.
-- **Code location**: `src/acp/client.ts`, `src/acp/commands.ts`, control-plane integration in `src/acp/control-plane/`.
+- Definition: A JSON-RPC dialect spoken between OpenClaw and external coding agents (Codex, Claude Code, Antigravity). ACP is OpenClaw's *out-bound* protocol to drive another agent runtime, separate from the gateway's own RPC.
+- Source: `src/acp/client.ts`, `src/acp/commands.ts`, control-plane integration in `src/acp/control-plane/`.
 - **See also**: `extensions/codex/`, Chapter 07 on agent execution.
 
 ### Agent
 
-- **Definition**: A named persona configured under `agents.entries[<agentId>]` in `openclaw.json`. Each agent ties together a model, a system prompt, a tool set, a workspace, and channel bindings. The default agent is conventionally `main`.
-- **Code location**: `src/agents/agent-scope.ts` (`listAgentIds`, `resolveAgentDir`), `src/config/types.openclaw.ts:54` (`OpenClawConfig.agents`).
+- Definition: A named persona configured under `agents.entries[<agentId>]` in `openclaw.json`. Each agent ties together a model, a system prompt, a tool set, a workspace, and channel bindings. The default agent is conventionally `main`.
+- Source: `src/agents/agent-scope.ts` (`listAgentIds`, `resolveAgentDir`), `src/config/types.openclaw.ts:54` (`OpenClawConfig.agents`).
 - **See also**: Chapter 07.
 
 ### Agent Command
 
-- **Definition**: The central coordinator that turns a normalised inbound message into an actual agent run. It selects the agent, picks the model, builds the prompt, hands the work to a runner, and handles fallback/retry. Despite the name, it is not a CLI command — it's the in-process function `agentCommand(...)`.
-- **Code location**: `src/agents/agent-command.ts` (`agentCommand`, `agentCommandFromIngress`).
+- Definition: The central coordinator that turns a normalised inbound message into an actual agent run. It selects the agent, picks the model, builds the prompt, hands the work to a runner, and handles fallback/retry. Despite the name, it is not a CLI command — it's the in-process function `agentCommand(...)`.
+- Source: `src/agents/agent-command.ts` (`agentCommand`, `agentCommandFromIngress`).
 - **See also**: Chapter 07.
 
 ### Agent Profile
 
-- **Definition**: A per-agent config object (extracted from `agents.entries[<agentId>]`) that captures model selection, default thinking level, tool policy profile, channel mappings, workspace, and skill mappings.
-- **Code location**: `src/agents/agent-scope.ts:resolveAgentConfig`, schema baseline in `src/config/types.openclaw.ts`.
+- Definition: A per-agent config object (extracted from `agents.entries[<agentId>]`) that captures model selection, default thinking level, tool policy profile, channel mappings, workspace, and skill mappings.
+- Source: `src/agents/agent-scope.ts:resolveAgentConfig`, schema baseline in `src/config/types.openclaw.ts`.
 - **See also**: Chapter 07.
 
 ### Anthropic Provider
 
-- **Definition**: The bundled provider plugin that calls Anthropic's `/v1/messages` API (Claude family). Ships with the gateway under `extensions/anthropic/`.
-- **Code location**: `extensions/anthropic/` (manifest at `extensions/anthropic/openclaw.plugin.json`).
+- Definition: The bundled provider plugin that calls Anthropic's `/v1/messages` API (Claude family). Ships with the gateway under `extensions/anthropic/`.
+- Source: `extensions/anthropic/` (manifest at `extensions/anthropic/openclaw.plugin.json`).
 - **See also**: Chapter 08 on LLM providers.
 
 ### Attempt
 
-- **Definition**: One LLM call cycle within `runWithModelFallback`. Each attempt picks a model, calls the provider, and may succeed, fail with a retryable error, or fail terminally; the fallback loop iterates over models, the attempt is the single call inside that loop.
-- **Code location**: `src/agents/command/attempt-execution.ts` (`runAgentAttempt`), used from `src/agents/agent-command.ts`.
+- Definition: One LLM call cycle within `runWithModelFallback`. Each attempt picks a model, calls the provider, and may succeed, fail with a retryable error, or fail terminally; the fallback loop iterates over models, the attempt is the single call inside that loop.
+- Source: `src/agents/command/attempt-execution.ts` (`runAgentAttempt`), used from `src/agents/agent-command.ts`.
 - **See also**: Chapter 07.
 
 ### Auth Profile
 
-- **Definition**: A persisted credential record for an agent — OAuth tokens, refresh tokens, external-CLI auth blobs (e.g., Claude/Codex CLI sessions). Lives at `<stateDir>/agents/<agentId>/agent/auth-profiles.json`.
-- **Code location**: `src/agents/auth-profiles/store.ts`, path resolver at `src/secrets/auth-store-paths.ts:12`.
+- Definition: A persisted credential record for an agent — OAuth tokens, refresh tokens, external-CLI auth blobs (e.g., Claude/Codex CLI sessions). Lives at `<stateDir>/agents/<agentId>/agent/auth-profiles.json`.
+- Source: `src/agents/auth-profiles/store.ts`, path resolver at `src/secrets/auth-store-paths.ts:12`.
 - **See also**: Chapter 14 §14.7.
 
 ### Auth Token
 
-- **Definition**: The shared bearer secret the gateway authenticates callers against when `gateway.auth.mode = "token"`. Configurable via `gateway.auth.token`, env `OPENCLAW_GATEWAY_TOKEN`, or a `SecretRef`.
-- **Code location**: `src/gateway/auth.ts:354` (`authorizeTokenAuth`), `src/gateway/auth-token-resolution.ts`, `src/gateway/known-weak-gateway-secrets.ts`.
+- Definition: The shared bearer secret the gateway authenticates callers against when `gateway.auth.mode = "token"`. Configurable via `gateway.auth.token`, env `OPENCLAW_GATEWAY_TOKEN`, or a `SecretRef`.
+- Source: `src/gateway/auth.ts:354` (`authorizeTokenAuth`), `src/gateway/auth-token-resolution.ts`, `src/gateway/known-weak-gateway-secrets.ts`.
 - **Aliases**: AKA "gateway token", "bearer secret".
 - **See also**: Chapter 14 §14.2.
 
 ### Bootstrap Token
 
-- **Definition**: A one-shot credential a new device exchanges, on first connect, for a long-lived device identity. Embedded in pairing QR payloads. Separate from the gateway shared secret.
-- **Code location**: `src/infra/device-bootstrap.ts:issueDeviceBootstrapToken`, consumed at `src/pairing/setup-code.ts:404`.
+- Definition: A one-shot credential a new device exchanges, on first connect, for a long-lived device identity. Embedded in pairing QR payloads. Separate from the gateway shared secret.
+- Source: `src/infra/device-bootstrap.ts:issueDeviceBootstrapToken`, consumed at `src/pairing/setup-code.ts:404`.
 - **See also**: Chapter 14 §14.6.2.
 
 ### Bundled Plugin
 
-- **Definition**: A plugin shipped inside the `extensions/` directory of the OpenClaw distribution, as opposed to being installed by the operator. Treated as part of OpenClaw's trusted computing base.
-- **Code location**: `extensions/`; metadata loader at `src/plugins/manifest.ts`; bundled vs installed split in `OPENCLAW_BUNDLED_PLUGINS_DIR`.
+- Definition: A plugin shipped inside the `extensions/` directory of the OpenClaw distribution, as opposed to being installed by the operator. Treated as part of OpenClaw's trusted computing base.
+- Source: `extensions/`; metadata loader at `src/plugins/manifest.ts`; bundled vs installed split in `OPENCLAW_BUNDLED_PLUGINS_DIR`.
 - **See also**: Chapter 10 on plugins; Chapter 14 §14.9.
 
 ### Canvas
 
-- **Definition**: An interactive tool surface that lets the agent open a programmable, in-process JS evaluator window in the Control UI. An explicit operator-trust feature: it can run arbitrary JS by design.
-- **Code location**: `extensions/canvas/`.
+- Definition: An interactive tool surface that lets the agent open a programmable, in-process JS evaluator window in the Control UI. An explicit operator-trust feature: it can run arbitrary JS by design.
+- Source: `extensions/canvas/`.
 - **See also**: `SECURITY.md` "Detailed False-Positive Patterns".
 
 ### Channel
 
-- **Definition**: A messaging platform plugin (Slack, Telegram, WhatsApp, Discord, Feishu, Mattermost, WebChat, etc.). Each channel adapts that platform's native messages to OpenClaw's `MsgContext` shape and routes outbound replies back through the platform SDK.
-- **Code location**: `src/channels/plugins/types.plugin.ts:61` (`ChannelPlugin`); channel implementations under `extensions/<channel>/`.
+- Definition: A messaging platform plugin (Slack, Telegram, WhatsApp, Discord, Feishu, Mattermost, WebChat, etc.). Each channel adapts that platform's native messages to OpenClaw's `MsgContext` shape and routes outbound replies back through the platform SDK.
+- Source: `src/channels/plugins/types.plugin.ts:61` (`ChannelPlugin`); channel implementations under `extensions/<channel>/`.
 - **See also**: Chapter 04.
 
 ### Channel Catalog
 
-- **Definition**: The static metadata table of every channel plugin OpenClaw knows about, with their config schemas and UI hints. Used by `openclaw doctor`, the wizard, and the Control UI's "add a channel" flow.
-- **Code location**: `src/channels/bundled-channel-catalog-read.ts`, generated metadata at `src/config/bundled-channel-config-metadata.generated.ts`.
+- Definition: The static metadata table of every channel plugin OpenClaw knows about, with their config schemas and UI hints. Used by `openclaw doctor`, the wizard, and the Control UI's "add a channel" flow.
+- Source: `src/channels/bundled-channel-catalog-read.ts`, generated metadata at `src/config/bundled-channel-config-metadata.generated.ts`.
 - **See also**: Chapter 04.
 
 ### Chat Type
 
-- **Definition**: A coarse classification of an inbound chat conversation: `"direct"`, `"group"`, or `"channel"`. Drives DM-vs-group policy gates (`dmPolicy`, `groupPolicy`).
-- **Code location**: `src/channels/chat-type.ts:3` defines `type ChatType = "direct" | "group" | "channel"`.
+- Definition: A coarse classification of an inbound chat conversation: `"direct"`, `"group"`, or `"channel"`. Drives DM-vs-group policy gates (`dmPolicy`, `groupPolicy`).
+- Source: `src/channels/chat-type.ts:3` defines `type ChatType = "direct" | "group" | "channel"`.
 - **See also**: Chapter 04.
 
 ### Compaction
 
-- **Definition**: The process of summarising a long session transcript into a shorter prompt-friendly form when it would otherwise blow past the model's context window. Triggered by token budgets or by an explicit `/compact` command.
-- **Code location**: `src/sessions/model-overrides.ts`; context-engine compaction operations in `src/context-engine/types.ts:47` (`ContextEngineOperation`).
+- Definition: The process of summarising a long session transcript into a shorter prompt-friendly form when it would otherwise blow past the model's context window. Triggered by token budgets or by an explicit `/compact` command.
+- Source: `src/sessions/model-overrides.ts`; context-engine compaction operations in `src/context-engine/types.ts:47` (`ContextEngineOperation`).
 - **See also**: Chapter 06.
 
 ### Context Engine
 
-- **Definition**: The subsystem that decides what slice of the session transcript and which auxiliary context (skills, memory, attachments) is fed to the model on each turn. Replaces ad-hoc prompt assembly with a delegate-driven projection.
-- **Code location**: `src/context-engine/types.ts`, `src/context-engine/delegate.ts`, registry at `src/context-engine/registry.ts`.
+- Definition: The subsystem that decides what slice of the session transcript and which auxiliary context (skills, memory, attachments) is fed to the model on each turn. Replaces ad-hoc prompt assembly with a delegate-driven projection.
+- Source: `src/context-engine/types.ts`, `src/context-engine/delegate.ts`, registry at `src/context-engine/registry.ts`.
 - **See also**: Chapter 07.
 
 ### Control Plane
 
-- **Definition**: The Gateway's role as the singular routing/authorisation/orchestration layer for OpenClaw. It is *not* the product — agents and providers are. All CLIs, the Control UI, mobile apps, and paired nodes connect to the control plane.
-- **Code location**: `src/gateway/server.impl.ts`, audit helper at `src/gateway/control-plane-audit.ts`.
+- Definition: The Gateway's role as the singular routing/authorisation/orchestration layer for OpenClaw. It is *not* the product — agents and providers are. All CLIs, the Control UI, mobile apps, and paired nodes connect to the control plane.
+- Source: `src/gateway/server.impl.ts`, audit helper at `src/gateway/control-plane-audit.ts`.
 - **See also**: Chapter 02.
 
 ### Crestodian
 
-- **Definition**: OpenClaw's ring-zero setup/repair helper — a separate assistant whose only job is to inspect the user's install (config validity, agents, gateway reachability, API key presence, local tool availability) and walk the operator through fixes. Deliberately isolated from the regular agent runtime so it stays usable when other things are broken.
-- **Code location**: `src/crestodian/crestodian.ts`, overview at `src/crestodian/overview.ts:30`, CLI at `src/cli/program/register.crestodian.ts:8`.
+- Definition: OpenClaw's ring-zero setup/repair helper — a separate assistant whose only job is to inspect the user's install (config validity, agents, gateway reachability, API key presence, local tool availability) and walk the operator through fixes. Deliberately isolated from the regular agent runtime so it stays usable when other things are broken.
+- Source: `src/crestodian/crestodian.ts`, overview at `src/crestodian/overview.ts:30`, CLI at `src/cli/program/register.crestodian.ts:8`.
 - **Aliases**: AKA "the guard" (the name is a play on Latin *custos*).
 - **See also**: Chapter 14 §14.10.1.
 
 ### Discord Channel
 
-- **Definition**: The bundled Discord channel plugin. Connects through Discord's bot WebSocket gateway.
-- **Code location**: `extensions/discord/`.
+- Definition: The bundled Discord channel plugin. Connects through Discord's bot WebSocket gateway.
+- Source: `extensions/discord/`.
 - **See also**: Chapter 04.
 
 ### dispatchInboundMessage
 
-- **Definition**: The single entry point that takes a normalised inbound message and runs the full reply pipeline: filtering, routing, agent invocation, reply dispatch. Channel plugins all funnel into this.
-- **Code location**: `src/auto-reply/dispatch.ts:246`; buffered/dispatcher variants at `:294,347`.
+- Definition: The single entry point that takes a normalised inbound message and runs the full reply pipeline: filtering, routing, agent invocation, reply dispatch. Channel plugins all funnel into this.
+- Source: `src/auto-reply/dispatch.ts:246`; buffered/dispatcher variants at `:294,347`.
 - **See also**: Chapter 04, Chapter 05.
 
 ### Event Stream
 
-- **Definition**: The structured event stream a gateway client subscribes to over its WebSocket connection. Receives agent text deltas, tool-call events, reply lifecycle events, status updates, etc.
-- **Code location**: `src/gateway/server-events/`.
+- Definition: The structured event stream a gateway client subscribes to over its WebSocket connection. Receives agent text deltas, tool-call events, reply lifecycle events, status updates, etc.
+- Source: `src/gateway/server-events/`.
 - **See also**: Chapter 02, Chapter 11.
 
 ### Extensions Directory
 
-- **Definition**: Where plugins live on disk. Two roots: the *bundled* extensions dir baked into the distribution (`extensions/` at repo root, set by `OPENCLAW_BUNDLED_PLUGINS_DIR`) and the operator's installed extensions under `<stateDir>/extensions/`.
-- **Code location**: Resolved by `listInstalledPluginDirs` in `src/security/installed-plugin-dirs.ts`; env vars in `src/entry.ts`.
+- Definition: Where plugins live on disk. Two roots: the *bundled* extensions dir baked into the distribution (`extensions/` at repo root, set by `OPENCLAW_BUNDLED_PLUGINS_DIR`) and the operator's installed extensions under `<stateDir>/extensions/`.
+- Source: Resolved by `listInstalledPluginDirs` in `src/security/installed-plugin-dirs.ts`; env vars in `src/entry.ts`.
 - **See also**: Chapter 10.
 
 ### Gateway
 
-- **Definition**: The long-running OpenClaw process. It binds HTTP + WebSocket, hosts the plugin runtime, owns sessions, dispatches RPC, and is the single trust domain in the OpenClaw security model.
-- **Code location**: `src/gateway/server.impl.ts:startGatewayServer` (default port 18789); thin shim at `src/gateway/server.ts`.
+- Definition: The long-running OpenClaw process. It binds HTTP + WebSocket, hosts the plugin runtime, owns sessions, dispatches RPC, and is the single trust domain in the OpenClaw security model.
+- Source: `src/gateway/server.impl.ts:startGatewayServer` (default port 18789); thin shim at `src/gateway/server.ts`.
 - **See also**: Chapter 02.
 
 ### Gateway Lock
 
-- **Definition**: A file-based mutex that prevents two gateway processes from starting against the same state directory and port. Stores `{pid, createdAt, configPath, startTime}` and reclaims stale locks older than 30s.
-- **Code location**: `src/infra/gateway-lock.ts`; payload schema at `src/infra/gateway-lock.ts:18-30`.
+- Definition: A file-based mutex that prevents two gateway processes from starting against the same state directory and port. Stores `{pid, createdAt, configPath, startTime}` and reclaims stale locks older than 30s.
+- Source: `src/infra/gateway-lock.ts`; payload schema at `src/infra/gateway-lock.ts:18-30`.
 - **See also**: Chapter 14 §14.11.
 
 ### HTTP Server
 
-- **Definition**: The plain-HTTP surface the Gateway exposes alongside its WebSocket. Serves the Control UI, the OpenAI-compatible endpoints (`/v1/chat/completions`, `/v1/responses`), the direct tool endpoint (`/tools/invoke`), and webhook ingress.
-- **Code location**: `src/gateway/server.impl.ts` (alongside the WebSocket listener), HTTP-specific helpers in `src/gateway/control-ui-http-utils.ts`.
+- Definition: The plain-HTTP surface the Gateway exposes alongside its WebSocket. Serves the Control UI, the OpenAI-compatible endpoints (`/v1/chat/completions`, `/v1/responses`), the direct tool endpoint (`/tools/invoke`), and webhook ingress.
+- Source: `src/gateway/server.impl.ts` (alongside the WebSocket listener), HTTP-specific helpers in `src/gateway/control-ui-http-utils.ts`.
 - **See also**: Chapter 02.
 
 ### Hook
 
-- **Definition**: A webhook-driven external trigger — Gmail polling, IMAP, a scheduled HTTP endpoint — that produces inbound events the gateway treats like a channel message.
-- **Code location**: `src/hooks/types.ts:35` defines `type Hook`; webhook auth boundary at `src/gateway/startup-auth.ts:224` (`assertHooksTokenSeparateFromGatewayAuth`).
+- Definition: A webhook-driven external trigger — Gmail polling, IMAP, a scheduled HTTP endpoint — that produces inbound events the gateway treats like a channel message.
+- Source: `src/hooks/types.ts:35` defines `type Hook`; webhook auth boundary at `src/gateway/startup-auth.ts:224` (`assertHooksTokenSeparateFromGatewayAuth`).
 - **See also**: Chapter 04.
 
 ### Inbound Message
 
-- **Definition**: A unified shape every channel produces before handing into the pipeline. Holds channel id, sender id, message body, attachments, reply-context, and routing hints.
-- **Code location**: `src/auto-reply/dispatch.ts` (consumed by `dispatchInboundMessage`); the runtime-rich form is `MsgContext`.
+- Definition: A unified shape every channel produces before handing into the pipeline. Holds channel id, sender id, message body, attachments, reply-context, and routing hints.
+- Source: `src/auto-reply/dispatch.ts` (consumed by `dispatchInboundMessage`); the runtime-rich form is `MsgContext`.
 - **See also**: Chapter 05.
 
 ### LLM Provider
 
-- **Definition**: A bundled or installed plugin that knows how to call a specific LLM vendor's API and translate it to OpenClaw's internal model contract.
-- **Code location**: `src/agents/runtime-plan/types.ts` (`AgentRuntimeProviderHandle`); provider plugins under `extensions/<provider>/` (e.g., `extensions/openai/`, `extensions/anthropic/`).
+- Definition: A bundled or installed plugin that knows how to call a specific LLM vendor's API and translate it to OpenClaw's internal model contract.
+- Source: `src/agents/runtime-plan/types.ts` (`AgentRuntimeProviderHandle`); provider plugins under `extensions/<provider>/` (e.g., `extensions/openai/`, `extensions/anthropic/`).
 - **See also**: Chapter 08.
 
 ### Manifest
 
-- **Definition**: A plugin's `openclaw.plugin.json` file. Declares the plugin id, version, contributed channels/providers/tools/skills, and capabilities. Loaded by the plugin registry at gateway startup.
-- **Code location**: `src/plugins/manifest.ts:loadPluginManifest`, schema in `src/plugins/types.ts`.
+- Definition: A plugin's `openclaw.plugin.json` file. Declares the plugin id, version, contributed channels/providers/tools/skills, and capabilities. Loaded by the plugin registry at gateway startup.
+- Source: `src/plugins/manifest.ts:loadPluginManifest`, schema in `src/plugins/types.ts`.
 - **Aliases**: "plugin manifest", `openclaw.plugin.json`.
 - **See also**: Chapter 10.
 
 ### MCP (Model Context Protocol)
 
-- **Definition**: An external standard for exposing tools/resources to an LLM. OpenClaw can act as an MCP client (consuming external MCP servers) and ships an MCP surface for its own tools.
-- **Code location**: `src/mcp/`.
+- Definition: An external standard for exposing tools/resources to an LLM. OpenClaw can act as an MCP client (consuming external MCP servers) and ships an MCP surface for its own tools.
+- Source: `src/mcp/`.
 - **See also**: Chapter 09.
 
 ### Memory Host SDK
 
-- **Definition**: The host-side SDK that memory plugins (e.g., `extensions/memory-lancedb`) link against to integrate with OpenClaw's memory layer. Defines the engine interface, multimodal helpers, and host config utilities.
-- **Code location**: `src/memory-host-sdk/` (thin re-export shells over `packages/memory-host-sdk/src/`).
+- Definition: The host-side SDK that memory plugins (e.g., `extensions/memory-lancedb`) link against to integrate with OpenClaw's memory layer. Defines the engine interface, multimodal helpers, and host config utilities.
+- Source: `src/memory-host-sdk/` (thin re-export shells over `packages/memory-host-sdk/src/`).
 - **See also**: Chapter 09.
 
 ### Message Received Hook
 
-- **Definition**: A user-configurable callback (declared in `agents.entries.*.hooks` or similar) that fires when an inbound message is received, before it reaches the agent.
-- **Code location**: Hook contracts in `src/plugins/types.ts`; dispatch in `src/auto-reply/dispatch.ts`.
+- Definition: A user-configurable callback (declared in `agents.entries.*.hooks` or similar) that fires when an inbound message is received, before it reaches the agent.
+- Source: Hook contracts in `src/plugins/types.ts`; dispatch in `src/auto-reply/dispatch.ts`.
 - **See also**: Chapter 04.
 
 ### Model Catalog
 
-- **Definition**: The merged view of every model OpenClaw knows about — from bundled defaults, from each provider's listed models, and from user overrides in `agents.defaults.models`. Used to populate model pickers and to validate `<provider>/<model>` refs.
-- **Code location**: `src/model-catalog/` (`buildModelCatalogRef`, `mergeModelCatalogRowsByAuthority`).
+- Definition: The merged view of every model OpenClaw knows about — from bundled defaults, from each provider's listed models, and from user overrides in `agents.defaults.models`. Used to populate model pickers and to validate `<provider>/<model>` refs.
+- Source: `src/model-catalog/` (`buildModelCatalogRef`, `mergeModelCatalogRowsByAuthority`).
 - **See also**: Chapter 08.
 
 ### MsgContext
 
-- **Definition**: The normalised "envelope" the dispatch pipeline uses internally. After `finalizeInboundContext` it becomes `FinalizedMsgContext` (adds derived/computed fields, removes the authorization stage marker).
-- **Code location**: `src/auto-reply/templating.ts:42` (`type MsgContext`).
+- Definition: The normalised "envelope" the dispatch pipeline uses internally. After `finalizeInboundContext` it becomes `FinalizedMsgContext` (adds derived/computed fields, removes the authorization stage marker).
+- Source: `src/auto-reply/templating.ts:42` (`type MsgContext`).
 - **See also**: Chapter 05.
 
 ### OAuth Subscription
 
-- **Definition**: An OAuth profile inside the auth-profile store that represents a refreshable subscription credential for a provider that uses OAuth (e.g., Anthropic Claude OAuth, OpenAI Codex OAuth).
-- **Code location**: `src/agents/auth-profiles/oauth.ts`, `src/agents/auth-profiles/oauth-shared.ts:5` (`RuntimeExternalOAuthProfile`).
+- Definition: An OAuth profile inside the auth-profile store that represents a refreshable subscription credential for a provider that uses OAuth (e.g., Anthropic Claude OAuth, OpenAI Codex OAuth).
+- Source: `src/agents/auth-profiles/oauth.ts`, `src/agents/auth-profiles/oauth-shared.ts:5` (`RuntimeExternalOAuthProfile`).
 - **See also**: Chapter 14 §14.7.2.
 
 ### OpenAI Provider
 
-- **Definition**: The bundled provider plugin that calls OpenAI's chat-completions and Responses APIs. Ships under `extensions/openai/`.
-- **Code location**: `extensions/openai/`.
+- Definition: The bundled provider plugin that calls OpenAI's chat-completions and Responses APIs. Ships under `extensions/openai/`.
+- Source: `extensions/openai/`.
 - **See also**: Chapter 08.
 
 ### OpenAI Responses
 
-- **Definition**: OpenAI's newer streaming response API (alongside chat-completions). Treated as a distinct model "API kind" by the provider runtime so persistence and replay can be tagged accordingly.
-- **Code location**: `src/config/types.models.ts:12` lists `"openai-responses"` as a model api kind.
+- Definition: OpenAI's newer streaming response API (alongside chat-completions). Treated as a distinct model "API kind" by the provider runtime so persistence and replay can be tagged accordingly.
+- Source: `src/config/types.models.ts:12` lists `"openai-responses"` as a model api kind.
 - **See also**: Chapter 08.
 
 ### OpenClaw Config
 
-- **Definition**: The user's `openclaw.json` (or `~/.openclaw/openclaw.json`). The single document that declares agents, channels, providers, secrets, hooks, gateway settings, and plugin allowlists.
-- **Code location**: Type at `src/config/types.openclaw.ts:54` (`OpenClawConfig`); resolution in `src/config/config.ts`.
+- Definition: The user's `openclaw.json` (or `~/.openclaw/openclaw.json`). The single document that declares agents, channels, providers, secrets, hooks, gateway settings, and plugin allowlists.
+- Source: Type at `src/config/types.openclaw.ts:54` (`OpenClawConfig`); resolution in `src/config/config.ts`.
 - **See also**: Chapter 03.
 
 ### Operator
 
-- **Definition**: The trusted human who owns this OpenClaw install. Every authenticated gateway caller is treated as the operator; OpenClaw deliberately does not model inter-operator isolation on one gateway.
-- **Code location**: Concept defined in `SECURITY.md:121-138` ("Operator Trust Model"); scopes in `src/gateway/operator-scopes.ts`.
+- Definition: The trusted human who owns this OpenClaw install. Every authenticated gateway caller is treated as the operator; OpenClaw deliberately does not model inter-operator isolation on one gateway.
+- Source: Concept defined in `SECURITY.md:121-138` ("Operator Trust Model"); scopes in `src/gateway/operator-scopes.ts`.
 - **See also**: Chapter 14 §14.1.
 
 ### Pairing
 
-- **Definition**: Two distinct flows that both live under `src/pairing/`. **Device pairing** uses a QR-encoded setup payload (URL + one-shot bootstrap token) to bring a phone/desktop client onto the gateway. **Channel pairing** is a per-message TOFU flow where unknown senders get a code the operator approves via CLI.
-- **Code location**: `src/pairing/setup-code.ts`, `src/pairing/pairing-challenge.ts`, `src/pairing/pairing-store.ts`.
+- Definition: Two distinct flows that both live under `src/pairing/`. **Device pairing** uses a QR-encoded setup payload (URL + one-shot bootstrap token) to bring a phone/desktop client onto the gateway. **Channel pairing** is a per-message TOFU flow where unknown senders get a code the operator approves via CLI.
+- Source: `src/pairing/setup-code.ts`, `src/pairing/pairing-challenge.ts`, `src/pairing/pairing-store.ts`.
 - **See also**: Chapter 14 §14.6.
 
 ### Plugin
 
-- **Definition**: A self-contained extension that contributes channels, providers, tools, skills, hooks, or memory backends. Loaded in-process with the Gateway and trusted with the same OS privileges.
-- **Code location**: `src/plugins/`, manifests under `extensions/<id>/openclaw.plugin.json`.
+- Definition: A self-contained extension that contributes channels, providers, tools, skills, hooks, or memory backends. Loaded in-process with the Gateway and trusted with the same OS privileges.
+- Source: `src/plugins/`, manifests under `extensions/<id>/openclaw.plugin.json`.
 - **Aliases**: AKA "extension"; bundled vs installed split.
 - **See also**: Chapter 10; trust boundary in Chapter 14 §14.9.
 
 ### Plugin Activation Boundary
 
-- **Definition**: The point in startup where a plugin's `activate()` lifecycle runs. Crossing this boundary is what turns an installed manifest into a live runtime contribution.
-- **Code location**: Tests at `src/plugin-activation-boundary.test.ts`; activation flow in `src/plugins/`.
+- Definition: The point in startup where a plugin's `activate()` lifecycle runs. Crossing this boundary is what turns an installed manifest into a live runtime contribution.
+- Source: Tests at `src/plugin-activation-boundary.test.ts`; activation flow in `src/plugins/`.
 - **See also**: Chapter 10.
 
 ### Plugin SDK
 
-- **Definition**: The TypeScript types and runtime helpers a plugin imports to integrate with the gateway. Re-exported through `src/plugin-sdk/`. Includes channel adapter types, gateway context types, secret-ref helpers, JSON store, runtime fs helpers.
-- **Code location**: `src/plugin-sdk/index.ts` (and many adjacent helper files).
+- Definition: The TypeScript types and runtime helpers a plugin imports to integrate with the gateway. Re-exported through `src/plugin-sdk/`. Includes channel adapter types, gateway context types, secret-ref helpers, JSON store, runtime fs helpers.
+- Source: `src/plugin-sdk/index.ts` (and many adjacent helper files).
 - **See also**: Chapter 10.
 
 ### ReplyDispatcher
 
-- **Definition**: The outbound delivery hub. Receives reply payloads from the agent, queues them by delivery type, applies humanising delays, tracks in-flight deliveries, and routes each payload back to the originating channel.
-- **Code location**: `src/auto-reply/reply/reply-dispatcher.types.ts:5`; runtime at `src/auto-reply/reply/reply-dispatcher.ts`.
+- Definition: The outbound delivery hub. Receives reply payloads from the agent, queues them by delivery type, applies humanising delays, tracks in-flight deliveries, and routes each payload back to the originating channel.
+- Source: `src/auto-reply/reply/reply-dispatcher.types.ts:5`; runtime at `src/auto-reply/reply/reply-dispatcher.ts`.
 - **See also**: Chapter 11.
 
 ### ReplyPayload
 
-- **Definition**: The structured form of one outbound reply. Text, media, metadata, delivery hints. Internal form carries `trustedLocalMedia`; the SDK-exposed subset omits it.
-- **Code location**: `src/auto-reply/reply-payload.ts:7` (internal), `src/plugin-sdk/reply-payload.ts:9` (SDK subset).
+- Definition: The structured form of one outbound reply. Text, media, metadata, delivery hints. Internal form carries `trustedLocalMedia`; the SDK-exposed subset omits it.
+- Source: `src/auto-reply/reply-payload.ts:7` (internal), `src/plugin-sdk/reply-payload.ts:9` (SDK subset).
 - **See also**: Chapter 11.
 
 ### RPC Method Registry
 
-- **Definition**: The set of `method` strings the gateway will accept on its WebSocket. Built from core descriptors + reserved namespaces + plugin-declared methods, each pinned to a required scope.
-- **Code location**: `src/gateway/methods/core-descriptors.ts`, scope lookup at `src/gateway/method-scopes.ts:39`.
+- Definition: The set of `method` strings the gateway will accept on its WebSocket. Built from core descriptors + reserved namespaces + plugin-declared methods, each pinned to a required scope.
+- Source: `src/gateway/methods/core-descriptors.ts`, scope lookup at `src/gateway/method-scopes.ts:39`.
 - **See also**: Chapter 02.
 
 ### Scope
 
-- **Definition**: A coarse-grained permission attached to a caller. OpenClaw has six: `operator.admin`, `operator.read`, `operator.write`, `operator.approvals`, `operator.pairing`, `operator.talk.secrets`. Each RPC method declares which scope a caller must hold.
-- **Code location**: `src/gateway/operator-scopes.ts:1-14`; enforcement at `src/gateway/method-scopes.ts:150` (`authorizeOperatorScopesForMethod`).
+- Definition: A coarse-grained permission attached to a caller. OpenClaw has six: `operator.admin`, `operator.read`, `operator.write`, `operator.approvals`, `operator.pairing`, `operator.talk.secrets`. Each RPC method declares which scope a caller must hold.
+- Source: `src/gateway/operator-scopes.ts:1-14`; enforcement at `src/gateway/method-scopes.ts:150` (`authorizeOperatorScopesForMethod`).
 - **See also**: Chapter 14 §14.5.
 
 ### Search Tool
 
-- **Definition**: The agent-facing tool that runs web search. Backed by a configurable provider (Brave, Tavily, etc.); shipped as a plugin.
-- **Code location**: `src/web-search/`; provider plugins under `extensions/brave/`, `extensions/tavily/`, etc.
+- Definition: The agent-facing tool that runs web search. Backed by a configurable provider (Brave, Tavily, etc.); shipped as a plugin.
+- Source: `src/web-search/`; provider plugins under `extensions/brave/`, `extensions/tavily/`, etc.
 - **See also**: Chapter 09.
 
 ### Secret Store
 
-- **Definition**: The disk locations that hold credentials. OpenClaw has three: (1) `openclaw.json` (refs + opt-in plaintext), (2) the per-agent auth-profile store, (3) external provider state (env files, mounted JSON, vault daemons).
-- **Code location**: `src/secrets/`, auth-profile store at `src/agents/auth-profiles/store.ts`.
+- Definition: The disk locations that hold credentials. OpenClaw has three: (1) `openclaw.json` (refs + opt-in plaintext), (2) the per-agent auth-profile store, (3) external provider state (env files, mounted JSON, vault daemons).
+- Source: `src/secrets/`, auth-profile store at `src/agents/auth-profiles/store.ts`.
 - **See also**: Chapter 14 §14.7.
 
 ### Session
 
-- **Definition**: A persistent conversation context — one row in a session store, paired with a JSONL transcript on disk. Holds model state, token usage, lifecycle timestamps, plugin extension slots, and a pointer to the transcript file.
-- **Code location**: `src/config/sessions/types.ts:176` (`SessionEntry`); `src/sessions/`.
+- Definition: A persistent conversation context — one row in a session store, paired with a JSONL transcript on disk. Holds model state, token usage, lifecycle timestamps, plugin extension slots, and a pointer to the transcript file.
+- Source: `src/config/sessions/types.ts:176` (`SessionEntry`); `src/sessions/`.
 - **See also**: Chapter 06.
 
 ### SessionEntry
 
-- **Definition**: The metadata record for one session in `sessions.json`. Small, mutable, integer-keyed map row. Distinct from the (separate, append-only) transcript file.
-- **Code location**: `src/config/sessions/types.ts:176`.
+- Definition: The metadata record for one session in `sessions.json`. Small, mutable, integer-keyed map row. Distinct from the (separate, append-only) transcript file.
+- Source: `src/config/sessions/types.ts:176`.
 - **See also**: Chapter 06.
 
 ### Session Lock
 
-- **Definition**: A per-session advisory lock that prevents two agent attempts from interleaving writes against the same transcript. Configurable max-hold; reclamation is rate-limited.
-- **Code location**: Session-lock backport `0b2f8dfbdb` and fix `8ac7cd621b`; `src/sessions/`.
+- Definition: A per-session advisory lock that prevents two agent attempts from interleaving writes against the same transcript. Configurable max-hold; reclamation is rate-limited.
+- Source: Session-lock backport `0b2f8dfbdb` and fix `8ac7cd621b`; `src/sessions/`.
 - **See also**: Chapter 06.
 
 ### Skill
 
-- **Definition**: A markdown-defined capability snippet (a `SKILL.md` file plus auxiliary assets) that an agent can be granted. Skills are smaller than tools and act more like role/playbook scaffolding.
-- **Code location**: `src/agents/skills/skill-contract.ts:6` (`type Skill`); workspace loader at `src/agents/skills/workspace.ts`.
+- Definition: A markdown-defined capability snippet (a `SKILL.md` file plus auxiliary assets) that an agent can be granted. Skills are smaller than tools and act more like role/playbook scaffolding.
+- Source: `src/agents/skills/skill-contract.ts:6` (`type Skill`); workspace loader at `src/agents/skills/workspace.ts`.
 - **See also**: Chapter 09.
 
 ### Slash Command
 
-- **Definition**: A command starting with `/` typed in a chat (or the TUI) — for example `/new`, `/compact`, `/export-session`. Resolved against the agent's installed commands.
-- **Code location**: `src/commands/`; channel-native slash handlers in each channel plugin.
+- Definition: A command starting with `/` typed in a chat (or the TUI) — for example `/new`, `/compact`, `/export-session`. Resolved against the agent's installed commands.
+- Source: `src/commands/`; channel-native slash handlers in each channel plugin.
 - **See also**: Chapter 09.
 
 ### State Directory
 
-- **Definition**: Where OpenClaw writes mutable state — `<stateDir>` is typically `~/.openclaw/`. Holds `agents/<agentId>/agent/auth-profiles.json`, session stores, pairing files, installed extensions, lock file.
-- **Code location**: `resolveStateDir` in `src/config/paths.js` (re-exported from `src/config/config.ts`); env `OPENCLAW_STATE_DIR`.
+- Definition: Where OpenClaw writes mutable state — `<stateDir>` is typically `~/.openclaw/`. Holds `agents/<agentId>/agent/auth-profiles.json`, session stores, pairing files, installed extensions, lock file.
+- Source: `resolveStateDir` in `src/config/paths.js` (re-exported from `src/config/config.ts`); env `OPENCLAW_STATE_DIR`.
 - **See also**: Chapter 03.
 
 ### Stream Error Placeholder
 
-- **Definition**: A canonical sentinel string injected into a transcript when an assistant turn fails before producing any content. `"[assistant turn failed before producing content]"`. Detected during prompt replay so it can be omitted from the replayed history.
-- **Code location**: `src/agents/stream-message-shared.ts:90` (`STREAM_ERROR_FALLBACK_TEXT`); replay-skip logic in `src/gateway/agent-prompt.ts:25`.
+- Definition: A canonical sentinel string injected into a transcript when an assistant turn fails before producing any content. `"[assistant turn failed before producing content]"`. Detected during prompt replay so it can be omitted from the replayed history.
+- Source: `src/agents/stream-message-shared.ts:90` (`STREAM_ERROR_FALLBACK_TEXT`); replay-skip logic in `src/gateway/agent-prompt.ts:25`.
 - **See also**: Chapter 07.
 
 ### System Prompt
 
-- **Definition**: The leading message that sets the agent's persona, rules, and tool-use contract. Resolved per-agent from `agents.entries.<id>.systemPrompt` plus channel-specific overlays.
-- **Code location**: Composed in `src/gateway/agent-prompt.ts`.
+- Definition: The leading message that sets the agent's persona, rules, and tool-use contract. Resolved per-agent from `agents.entries.<id>.systemPrompt` plus channel-specific overlays.
+- Source: Composed in `src/gateway/agent-prompt.ts`.
 - **See also**: Chapter 07.
 
 ### Tool
 
-- **Definition**: A function the agent can invoke during a turn. Declared with a `ToolDescriptor` and gated by tool policy, availability rules, and (for exec-class tools) an approval gate.
-- **Code location**: `src/tools/types.ts:39` (`ToolDescriptor`); planner at `src/tools/planner.ts`.
+- Definition: A function the agent can invoke during a turn. Declared with a `ToolDescriptor` and gated by tool policy, availability rules, and (for exec-class tools) an approval gate.
+- Source: `src/tools/types.ts:39` (`ToolDescriptor`); planner at `src/tools/planner.ts`.
 - **See also**: Chapter 09.
 
 ### Tool Approval Gate
 
-- **Definition**: The two-phase human-in-the-loop check that runs before an exec-class tool invocation. Binds the approval to the exact command + cwd + env (+ a script-file snapshot when resolvable) and delivers the approval card back through whichever channel the user is on.
-- **Code location**: `src/agents/bash-tools.exec-approval-request.ts` (`buildExecApprovalRequestToolParams`); two-phase contract documented at `SECURITY.md:281-284`.
+- Definition: The two-phase human-in-the-loop check that runs before an exec-class tool invocation. Binds the approval to the exact command + cwd + env (+ a script-file snapshot when resolvable) and delivers the approval card back through whichever channel the user is on.
+- Source: `src/agents/bash-tools.exec-approval-request.ts` (`buildExecApprovalRequestToolParams`); two-phase contract documented at `SECURITY.md:281-284`.
 - **See also**: Chapter 09; Chapter 14 §14.8.
 
 ### Tool Use Block
 
-- **Definition**: A content block in the agent's output stream that represents a structured tool call (name + arguments) rather than free text. Both the LLM and the gateway speak this shape.
-- **Code location**: Stream wrappers in provider plugins (e.g., `extensions/anthropic/stream-wrappers.ts`); content typing in `src/agents/`.
+- Definition: A content block in the agent's output stream that represents a structured tool call (name + arguments) rather than free text. Both the LLM and the gateway speak this shape.
+- Source: Stream wrappers in provider plugins (e.g., `extensions/anthropic/stream-wrappers.ts`); content typing in `src/agents/`.
 - **See also**: Chapter 09.
 
 ### Transcript
 
-- **Definition**: A JSONL file under `<stateDir>/agents/<agentId>/sessions/<sessionId>.jsonl`. Append-only line-per-event format; one header line plus one line per message/event. Different from the session store which is the map of all sessions.
-- **Code location**: `src/sessions/transcript-events.ts`.
+- Definition: A JSONL file under `<stateDir>/agents/<agentId>/sessions/<sessionId>.jsonl`. Append-only line-per-event format; one header line plus one line per message/event. Different from the session store which is the map of all sessions.
+- Source: `src/sessions/transcript-events.ts`.
 - **See also**: Chapter 06.
 
 ### Transcription
 
-- **Definition**: Speech-to-text conversion of inbound audio. Backed by a configurable provider (OpenAI, Deepgram, …) and a realtime variant.
-- **Code location**: `src/realtime-transcription/`; provider plugins like `extensions/deepgram/`.
+- Definition: Speech-to-text conversion of inbound audio. Backed by a configurable provider (OpenAI, Deepgram, …) and a realtime variant.
+- Source: `src/realtime-transcription/`; provider plugins like `extensions/deepgram/`.
 - **See also**: Chapter 13 on voice/media.
 
 ### TTS
 
-- **Definition**: Text-to-speech conversion of outbound text. Provider-pluggable; the wire format is normalised by the TTS provider runtime.
-- **Code location**: `src/tts/`; provider plugins like `extensions/inworld/`, `extensions/azure-speech/`.
+- Definition: Text-to-speech conversion of outbound text. Provider-pluggable; the wire format is normalised by the TTS provider runtime.
+- Source: `src/tts/`; provider plugins like `extensions/inworld/`, `extensions/azure-speech/`.
 - **See also**: Chapter 13.
 
 ### WebChat
 
-- **Definition**: The browser-based chat surface served directly by the gateway as a built-in channel. Lets the operator (and anyone they trust) chat with their agents from any device with a browser.
-- **Code location**: `src/web/`; Control-UI plumbing in `src/gateway/control-ui-routing.ts`.
+- Definition: The browser-based chat surface served directly by the gateway as a built-in channel. Lets the operator (and anyone they trust) chat with their agents from any device with a browser.
+- Source: `src/web/`; Control-UI plumbing in `src/gateway/control-ui-routing.ts`.
 - **See also**: Chapter 12 on the Web UI.
 
 ### WebSocket Protocol
 
-- **Definition**: The Gateway's primary RPC channel. JSON-RPC frames with `method`, `params`, `id`; the connect payload carries `connectAuth.{token|password}` and optional `scopes`. Used by CLI, Control UI, mobile apps, and node devices.
-- **Code location**: `src/gateway/server.impl.ts`; connection auth at `src/gateway/auth.ts:400`.
+- Definition: The Gateway's primary RPC channel. JSON-RPC frames with `method`, `params`, `id`; the connect payload carries `connectAuth.{token|password}` and optional `scopes`. Used by CLI, Control UI, mobile apps, and node devices.
+- Source: `src/gateway/server.impl.ts`; connection auth at `src/gateway/auth.ts:400`.
 - **See also**: Chapter 02.
 
 ### Workspace
 
-- **Definition**: A per-agent root directory the agent's tools have file access to. Distinct from the state directory; the workspace is *the agent's work* (notes, scratch files, project clones), the state dir is OpenClaw's housekeeping.
-- **Code location**: `agents.entries.<id>.workspace` in `OpenClawConfig`; workspace skill loader at `src/agents/skills/workspace.ts`.
+- Definition: A per-agent root directory the agent's tools have file access to. Distinct from the state directory; the workspace is *the agent's work* (notes, scratch files, project clones), the state dir is OpenClaw's housekeeping.
+- Source: `agents.entries.<id>.workspace` in `OpenClawConfig`; workspace skill loader at `src/agents/skills/workspace.ts`.
 - **See also**: Chapter 07.
 
 ---

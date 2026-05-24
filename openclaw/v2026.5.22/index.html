@@ -2,16 +2,16 @@
 <!--
   This file goes to <output>/<project>/<version>/index.html (the version subdirectory, sibling of web/).
   Replace at scaffold time:
-    {{PROJECT_NAME}}   → project name (e.g., "vLLM", "hermes-agent")
-    {{LANG}}           → "zh-CN" | "en"
-    {{TITLE_SUFFIX}}   → "中文参考 Wiki" (zh) | "Wiki" (en)
+    OpenClaw   → project name (e.g., "vLLM", "hermes-agent")
+    en           → "zh-CN" | "en"
+    Wiki   → "中文参考 Wiki" (zh) | "Wiki" (en)
   Runtime i18n: data-i18n[-text|-placeholder] attrs read by app.js applyI18n() from strings.js T table.
 -->
-<html lang="{{LANG}}">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{{PROJECT_NAME}} {{TITLE_SUFFIX}}</title>
+  <title>OpenClaw Wiki</title>
   <link rel="stylesheet" href="web/css/style.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.10.0/styles/atom-one-dark.min.css" id="hljs-theme">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
@@ -19,7 +19,7 @@
 <body data-theme="light">
   <header class="topbar">
     <div class="brand">
-      <a href="#/">{{PROJECT_NAME}}<span class="brand-sub"> Wiki</span></a>
+      <a href="#/">OpenClaw<span class="brand-sub"> Wiki</span></a>
     </div>
     <select id="project-switcher" class="version-switcher" data-i18n="switch_project" hidden></select>
     <select id="version-switcher" class="version-switcher" data-i18n="switch_version" hidden></select>
