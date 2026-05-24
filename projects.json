@@ -2,6 +2,15 @@
   "title": "Codebase Wikis",
   "projects": [
     {
+      "dir": "openclaw",
+      "name": "OpenClaw",
+      "github": "openclaw/openclaw",
+      "tagline": "OpenClaw 源码参考 Wiki —— 自托管的个人 AI 助手网关，统一接入二十余种消息渠道。",
+      "versions": 2,
+      "latest": "v2026.5.22",
+      "updated": "2026-05-24"
+    },
+    {
       "dir": "opencode",
       "name": "opencode",
       "github": "anomalyco/opencode",
@@ -18,15 +27,6 @@
       "versions": 1,
       "latest": "v4868222e",
       "updated": "2026-05-20"
-    },
-    {
-      "dir": "openclaw",
-      "name": "OpenClaw",
-      "github": "openclaw/openclaw",
-      "tagline": "OpenClaw 源码中文参考 Wiki —— 自托管的个人 AI 助手网关，统一接入二十余种消息渠道。",
-      "versions": 1,
-      "latest": "v2026.5.18",
-      "updated": "2026-05-18"
     },
     {
       "dir": "dwarfstar-4",

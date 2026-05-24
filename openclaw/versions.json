@@ -2,12 +2,20 @@
   "project": "openclaw",
   "versions": [
     {
+      "dir": "v2026.5.22",
+      "label": "v2026.5.22",
+      "commit": "a374c3a5bf",
+      "target_ref": "v2026.5.22",
+      "date": "2026-05-24",
+      "latest": true
+    },
+    {
       "dir": "v2026.5.18",
       "label": "v2026.5.18",
       "commit": "50a2481652",
       "target_ref": "v2026.5.18",
       "date": "2026-05-18",
-      "latest": true
+      "latest": false
     }
   ]
 }
