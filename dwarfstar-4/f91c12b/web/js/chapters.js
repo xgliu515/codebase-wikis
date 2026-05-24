@@ -130,5 +130,41 @@ export function getCurrentVersionDir() {
   return segs.length ? segs[segs.length - 1] : '';
 }
 
-// Storage prefix auto-derived from PROJECT_NAME (used for theme/source-mode localStorage keys).
-export const STORAGE_PREFIX = PROJECT_NAME.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+// 当前项目目录名：mono-repo 下版本目录的上一级，例如
+//   /wikis/vllm/v0.22.0/index.html  →  'vllm'
+// 用于项目切换下拉。路径不足两段时返回空串。
+export function getCurrentProjectDir() {
+  const segs = location.pathname.split('/').filter(Boolean);
+  if (segs.length && /\.html?$/i.test(segs[segs.length - 1])) segs.pop();
+  return segs.length >= 2 ? segs[segs.length - 2] : '';
+}
+
+// localStorage key 前缀：由 PROJECT_NAME 派生，并追加版本目录名做隔离，
+// 避免同源下多个版本的查看器互相覆盖阅读状态。
+export const STORAGE_PREFIX = (() => {
+  const base = (PROJECT_NAME.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'codebase') + '-wiki';
+  const ver = getCurrentVersionDir();
+  return ver ? `${base}-${ver}` : base;
+})();
+
+// =========================================================
+// file:line 跳转链接：默认走 GitHub（任何人可用），可切换成本地 VSCode
+// localStorage 里有 path → 'local' 模式；没有 → 'github' 模式
+// =========================================================
+const REPO_ROOT_KEY = STORAGE_PREFIX + '-repo-root';
+
+export function getRepoMode() {
+  return getRepoRoot() ? 'local' : 'github';
+}
+
+export function getRepoRoot() {
+  try { return localStorage.getItem(REPO_ROOT_KEY) || ''; }
+  catch { return ''; }
+}
+
+export function setRepoRoot(path) {
+  try {
+    if (path && path.trim()) localStorage.setItem(REPO_ROOT_KEY, path.trim());
+    else localStorage.removeItem(REPO_ROOT_KEY);
+  } catch {}
+}
