@@ -2,12 +2,20 @@
   "project": "DwarfStar 4",
   "versions": [
     {
+      "dir": "f91c12b",
+      "label": "f91c12b (English)",
+      "commit": "f91c12b",
+      "target_ref": "f91c12b",
+      "date": "2026-05-24",
+      "latest": true
+    },
+    {
       "dir": "c9dd949",
-      "label": "c9dd949",
+      "label": "c9dd949 (中文)",
       "commit": "c9dd949",
       "target_ref": "c9dd949",
       "date": "2026-05-18",
-      "latest": true
+      "latest": false
     }
   ]
 }
