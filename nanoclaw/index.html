@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<!--
+  项目内的版本选择页 → 复制为 mono-repo 里的 <project>/index.html。
+  替换 nanoclaw 为项目名。页面内容完全由同级 versions.json 驱动，
+  新增版本时本文件无需重新生成。
+-->
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>nanoclaw 中文参考 Wiki — 版本选择</title>
+  <link rel="stylesheet" href="../selector.css">
+</head>
+<body>
+  <main class="selector">
+    <p class="back-link"><a href="../index.html">← 所有项目</a></p>
+    <h1>nanoclaw <span>中文参考 Wiki</span></h1>
+    <p class="subtitle">选择一个代码版本查看对应的 wiki。</p>
+    <ul id="version-list" class="version-list"></ul>
+    <p id="empty" class="empty" hidden>未找到 versions.json，或其中没有任何版本。</p>
+  </main>
+  <script>
+    (async function () {
+      const listEl = document.getElementById('version-list');
+      const emptyEl = document.getElementById('empty');
+      try {
+        const resp = await fetch('versions.json', { cache: 'no-cache' });
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        const manifest = await resp.json();
+        const versions = Array.isArray(manifest && manifest.versions) ? manifest.versions : [];
+        if (!versions.length) { emptyEl.hidden = false; return; }
+        for (const v of versions) {
+          const li = document.createElement('li');
+          const a = document.createElement('a');
+          a.href = v.dir + '/index.html';
+          a.className = 'version-card';
+          a.innerHTML =
+            '<div class="vc-head"><span class="vc-label"></span>' +
+            (v.latest ? '<span class="vc-badge">latest</span>' : '') + '</div>' +
+            '<dl class="vc-meta">' +
+            '<div><dt>目标</dt><dd class="vc-ref"></dd></div>' +
+            '<div><dt>commit</dt><dd class="vc-commit"></dd></div>' +
+            '<div><dt>日期</dt><dd class="vc-date"></dd></div>' +
+            '</dl>';
+          a.querySelector('.vc-label').textContent = v.label || v.dir;
+          a.querySelector('.vc-ref').textContent = v.target_ref || '—';
+          a.querySelector('.vc-commit').textContent = v.commit || '—';
+          a.querySelector('.vc-date').textContent = v.date || '—';
+          li.appendChild(a);
+          listEl.appendChild(li);
+        }
+      } catch (err) {
+        emptyEl.hidden = false;
+        emptyEl.textContent = '加载 versions.json 失败：' + (err.message || err);
+      }
+    })();
+  </script>
+</body>
+</html>

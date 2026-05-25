@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NanoClaw 中文参考 Wiki</title>
+  <link rel="stylesheet" href="web/css/style.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.10.0/styles/atom-one-dark.min.css" id="hljs-theme">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+</head>
+<body data-theme="light">
+  <header class="topbar">
+    <div class="brand">
+      <a href="#/">NanoClaw<span class="brand-sub"> Wiki</span></a>
+    </div>
+    <select id="project-switcher" class="version-switcher" data-i18n="switch_project" hidden></select>
+    <select id="version-switcher" class="version-switcher" data-i18n="switch_version" hidden></select>
+    <div class="search-wrap">
+      <input id="search-input" type="search" data-i18n-placeholder="search_placeholder" autocomplete="off" spellcheck="false">
+      <div id="search-results" class="search-results" hidden></div>
+    </div>
+    <div class="toolbar">
+      <button id="prev-chapter" data-i18n="prev_chapter">‹</button>
+      <button id="next-chapter" data-i18n="next_chapter">›</button>
+      <button id="repo-root-btn" data-i18n="source_mode_title" data-i18n-text="source_mode_btn_label">源码</button>
+      <button id="theme-toggle" data-i18n="toggle_theme">🌓</button>
+    </div>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar" id="sidebar">
+      <nav id="chapter-list"></nav>
+    </aside>
+
+    <main class="content" id="content">
+      <div class="loading" data-i18n-text="loading">加载中…</div>
+    </main>
+
+    <aside class="rightbar" id="rightbar">
+      <div class="rightbar-title" data-i18n-text="toc_title">本页目录</div>
+      <nav id="page-toc"></nav>
+    </aside>
+  </div>
+
+  <div id="diagram-modal" class="modal" hidden>
+    <div class="modal-backdrop" data-close></div>
+    <div class="modal-body">
+      <button class="modal-close" data-close>×</button>
+      <div id="modal-diagram"></div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" hidden></div>
+
+  <script type="module" src="web/js/app.js"></script>
+</body>
+</html>

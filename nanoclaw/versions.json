@@ -1,0 +1,13 @@
+{
+  "project": "nanoclaw",
+  "versions": [
+    {
+      "dir": "v2.0.64",
+      "label": "v2.0.64",
+      "commit": "0683c6e",
+      "target_ref": "v2.0.64",
+      "date": "2026-05-18",
+      "latest": true
+    }
+  ]
+}

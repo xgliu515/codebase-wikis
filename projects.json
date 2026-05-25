@@ -2,6 +2,15 @@
   "title": "Codebase Wikis",
   "projects": [
     {
+      "dir": "nanoclaw",
+      "name": "NanoClaw",
+      "github": "nanocoai/nanoclaw",
+      "tagline": "NanoClaw 源码中文参考 Wiki —— 个人 Claude 助手网关；Node host + per-session Bun 容器，仅通过 SQLite 文件通信。",
+      "versions": 1,
+      "latest": "v2.0.64",
+      "updated": "2026-05-24"
+    },
+    {
       "dir": "dwarfstar-4",
       "name": "DwarfStar 4",
       "github": "antirez/ds4",
