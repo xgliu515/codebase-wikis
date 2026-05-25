@@ -127,6 +127,60 @@ async function spawnContainer(session: Session): Promise<void> {
 - **`spawn(CONTAINER_RUNTIME_BIN, args, { stdio: ['ignore', 'pipe', 'pipe'] })`**：`CONTAINER_RUNTIME_BIN = 'docker'`（`src/container-runtime.ts:12`，硬编码 docker，apple-container 路径预留但 v2.0.64 未走通）。stdio 配置：stdin ignore（容器不读 stdin，所有 IO 走 session DB）、stdout/stderr pipe 是为了让 host 抓 log。
 - **`activeContainers.set(...)` + `markContainerRunning(...)`**：注册到内存表、Central DB `sessions.container_status = 'running'`。注意**先 set 再 mark**——如果反过来，DB 写成 running 但内存 map 没注册，下一次 wake 检查 activeContainers 不命中又会 spawn 一次。
 
+<svg viewBox="0 0 760 460" xmlns="http://www.w3.org/2000/svg" class="figure-svg" role="img" aria-label="wakeContainer two-layer dedupe gates plus spawnContainer pre-spawn IO chain: projection, materialize, mounts, args with OneCLI injection, child spawn, and active map registration">
+  <defs>
+    <marker id="ar91" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/></marker>
+  </defs>
+  <rect x="20" y="20" width="720" height="120" rx="8" fill="#0d9488" opacity="0.12" stroke="#0d9488" stroke-width="1.2"/>
+  <text x="30" y="40" font-size="12" font-weight="700" fill="#0d9488">wakeContainer ── 双层去重</text>
+  <rect x="40" y="56" width="200" height="68" rx="6" fill="#ffffff" stroke="#0d9488" stroke-width="1.2"/>
+  <text x="140" y="76" text-anchor="middle" font-size="11" font-weight="700" fill="currentColor">第 1 层：activeContainers</text>
+  <text x="140" y="92" text-anchor="middle" font-size="10" fill="#64748b">已在跑？ → Promise.resolve(true)</text>
+  <text x="140" y="108" text-anchor="middle" font-size="10" fill="#94a3b8">map: sessionId → child</text>
+  <line x1="240" y1="90" x2="276" y2="90" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar91)"/>
+  <rect x="280" y="56" width="200" height="68" rx="6" fill="#ffffff" stroke="#0d9488" stroke-width="1.2"/>
+  <text x="380" y="76" text-anchor="middle" font-size="11" font-weight="700" fill="currentColor">第 2 层：wakePromises</text>
+  <text x="380" y="92" text-anchor="middle" font-size="10" fill="#64748b">spawn 中？ → join 同一 promise</text>
+  <text x="380" y="108" text-anchor="middle" font-size="10" fill="#94a3b8">race 防止双 spawn</text>
+  <line x1="480" y1="90" x2="516" y2="90" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar91)"/>
+  <rect x="520" y="56" width="200" height="68" rx="6" fill="#fed7aa" stroke="#ea580c" stroke-width="1.5"/>
+  <text x="620" y="76" text-anchor="middle" font-size="11" font-weight="700" fill="currentColor">spawnContainer(session)</text>
+  <text x="620" y="92" text-anchor="middle" font-size="10" fill="#64748b">.then(true).catch(false)</text>
+  <text x="620" y="108" text-anchor="middle" font-size="10" fill="#64748b">.finally(delete promise)</text>
+  <line x1="620" y1="140" x2="620" y2="160" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar91)"/>
+  <rect x="20" y="164" width="720" height="240" rx="8" fill="#ea580c" opacity="0.1" stroke="#ea580c" stroke-width="1.2"/>
+  <text x="30" y="184" font-size="12" font-weight="700" fill="#ea580c">spawnContainer 前置 IO 链路</text>
+  <rect x="40" y="196" width="200" height="46" rx="5" fill="#ffffff" stroke="#7c3aed" stroke-width="1.2"/>
+  <text x="140" y="214" text-anchor="middle" font-size="11" font-weight="700" fill="currentColor">1. projection</text>
+  <text x="140" y="230" text-anchor="middle" font-size="10" fill="#64748b">writeDestinations + writeSessionRouting</text>
+  <line x1="240" y1="219" x2="276" y2="219" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar91)"/>
+  <rect x="280" y="196" width="200" height="46" rx="5" fill="#ffffff" stroke="#7c3aed" stroke-width="1.2"/>
+  <text x="380" y="214" text-anchor="middle" font-size="11" font-weight="700" fill="currentColor">2. materialize</text>
+  <text x="380" y="230" text-anchor="middle" font-size="10" fill="#64748b">container.json 每次重写</text>
+  <line x1="480" y1="219" x2="516" y2="219" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar91)"/>
+  <rect x="520" y="196" width="200" height="46" rx="5" fill="#ffffff" stroke="#7c3aed" stroke-width="1.2"/>
+  <text x="620" y="214" text-anchor="middle" font-size="11" font-weight="700" fill="currentColor">3. buildMounts</text>
+  <text x="620" y="230" text-anchor="middle" font-size="10" fill="#64748b">RW 大目录 + 嵌套 RO 文件</text>
+  <line x1="620" y1="242" x2="620" y2="262" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar91)"/>
+  <rect x="280" y="266" width="440" height="56" rx="5" fill="#fef2f2" stroke="#dc2626" stroke-width="1.4"/>
+  <text x="500" y="284" text-anchor="middle" font-size="11" font-weight="700" fill="#dc2626">4. buildContainerArgs + OneCLI gateway 注入</text>
+  <text x="500" y="300" text-anchor="middle" font-size="10" fill="#64748b">ensureAgent(identifier=agent_group.id) → applyContainerConfig</text>
+  <text x="500" y="314" text-anchor="middle" font-size="10" fill="#64748b">注入 HTTPS_PROXY / CA bundle；失败 throw → host-sweep retry</text>
+  <line x1="280" y1="294" x2="244" y2="294" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar91)"/>
+  <rect x="40" y="270" width="200" height="48" rx="5" fill="#ffffff" stroke="#dc2626" stroke-width="1"/>
+  <text x="140" y="290" text-anchor="middle" font-size="11" font-weight="600" fill="currentColor">rmSync(.heartbeat)</text>
+  <text x="140" y="306" text-anchor="middle" font-size="10" fill="#64748b">清孤儿避免 immediate kill</text>
+  <line x1="500" y1="322" x2="500" y2="346" stroke="#ea580c" stroke-width="1.4" marker-end="url(#ar91)"/>
+  <rect x="180" y="350" width="640" height="48" rx="6" fill="#fed7aa" stroke="#ea580c" stroke-width="1.5"/>
+  <text x="500" y="370" text-anchor="middle" font-size="12" font-weight="700" fill="currentColor">child_process.spawn('docker', args)  →  activeContainers.set  →  markContainerRunning</text>
+  <text x="500" y="386" text-anchor="middle" font-size="10" fill="#64748b">先 set 再 mark；child boot 完全异步</text>
+  <line x1="500" y1="398" x2="500" y2="416" stroke="#7c3aed" stroke-width="1.4" stroke-dasharray="4,3" marker-end="url(#ar91)"/>
+  <rect x="180" y="420" width="640" height="32" rx="6" fill="#ddd6fe" opacity="0.4" stroke="#7c3aed" stroke-width="1.2" stroke-dasharray="4,3"/>
+  <text x="500" y="440" text-anchor="middle" font-size="11" fill="currentColor">后台异步：docker run → image load → Bun boot → poll loop（步骤 10-11）</text>
+</svg>
+<span class="figure-caption">图 T1.7 ｜ wakeContainer 双层去重 + spawnContainer 4 段前置 IO：projection → materialize → mounts → args（含 OneCLI 注入）→ child spawn → 注册到 activeContainers。OneCLI 失败转 false 由 host-sweep 兜底重试。</span>
+
+
 **(3) `buildMounts` 的 8-12 个 mount**（`src/container-runner.ts:242-335`）：
 
 | host 路径 | container 路径 | RW/RO | 用途 |

@@ -93,6 +93,83 @@ async function processQuery(query: AgentQuery, routing, ids, providerName) {
 
 ## 5. nanoclaw 的做法
 
+<svg viewBox="0 0 820 400" xmlns="http://www.w3.org/2000/svg" class="figure-svg" role="img" aria-label="Dual-track processQuery: main for-await events plus 500ms setInterval poll-and-push follow-ups">
+  <defs>
+    <marker id="sp-ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/></marker>
+  </defs>
+  <text x="410" y="20" font-size="13" font-weight="700" fill="currentColor" text-anchor="middle">processQuery() — dual-track concurrency (main await + setInterval push)</text>
+  <text x="60" y="50" font-size="10" fill="#94a3b8">t=</text>
+  <line x1="80" y1="46" x2="780" y2="46" stroke="#cbd5e1"/>
+  <text x="120" y="38" font-size="9" fill="#64748b">0ms</text>
+  <text x="260" y="38" font-size="9" fill="#64748b">500</text>
+  <text x="400" y="38" font-size="9" fill="#64748b">1000</text>
+  <text x="540" y="38" font-size="9" fill="#64748b">1500</text>
+  <text x="680" y="38" font-size="9" fill="#64748b">2000ms</text>
+  <rect x="20" y="70" width="780" height="130" rx="6" fill="#ecfdf5" stroke="#0d9488" stroke-width="1.2"/>
+  <text x="30" y="88" font-size="11" font-weight="700" fill="#0f766e">Main track  ·  for await (event of query.events)</text>
+  <line x1="80" y1="138" x2="780" y2="138" stroke="#0d9488" stroke-width="2"/>
+  <circle cx="120" cy="138" r="8" fill="#0d9488"/>
+  <text x="120" y="160" font-size="10" fill="currentColor" text-anchor="middle">activity</text>
+  <text x="120" y="172" font-size="9" fill="#94a3b8" text-anchor="middle">touchHeartbeat</text>
+  <circle cx="180" cy="138" r="10" fill="#7c3aed"/>
+  <text x="180" y="160" font-size="10" font-weight="700" fill="#7c3aed" text-anchor="middle">init</text>
+  <text x="180" y="172" font-size="9" fill="#94a3b8" text-anchor="middle">setContinuation</text>
+  <text x="180" y="184" font-size="9" fill="#dc2626" text-anchor="middle" font-weight="600">eager! crash-safe</text>
+  <circle cx="260" cy="138" r="6" fill="#0d9488"/>
+  <circle cx="320" cy="138" r="6" fill="#0d9488"/>
+  <circle cx="380" cy="138" r="6" fill="#0d9488"/>
+  <circle cx="460" cy="138" r="6" fill="#0d9488"/>
+  <circle cx="540" cy="138" r="6" fill="#0d9488"/>
+  <text x="400" y="116" font-size="10" fill="#0d9488" text-anchor="middle">activity events (every tool call / thinking / retry) → touchHeartbeat each</text>
+  <circle cx="700" cy="138" r="10" fill="#ea580c"/>
+  <text x="700" y="160" font-size="10" font-weight="700" fill="#ea580c" text-anchor="middle">result</text>
+  <text x="700" y="172" font-size="9" fill="#94a3b8" text-anchor="middle">dispatchResultText</text>
+  <text x="700" y="184" font-size="9" fill="#94a3b8" text-anchor="middle">→ step 15</text>
+  <rect x="20" y="210" width="780" height="170" rx="6" fill="#fef3c7" stroke="#ea580c" stroke-width="1.2"/>
+  <text x="30" y="228" font-size="11" font-weight="700" fill="#9a3412">Side track  ·  setInterval(500ms) — poll new inbound, push into live query</text>
+  <line x1="80" y1="284" x2="780" y2="284" stroke="#ea580c" stroke-width="2" stroke-dasharray="4,3"/>
+  <rect x="252" y="270" width="16" height="28" rx="2" fill="#ea580c"/>
+  <text x="260" y="316" font-size="10" fill="currentColor" text-anchor="middle">tick</text>
+  <text x="260" y="328" font-size="9" fill="#94a3b8" text-anchor="middle">no new inbound</text>
+  <text x="260" y="340" font-size="9" fill="#94a3b8" text-anchor="middle">no-op</text>
+  <rect x="392" y="270" width="16" height="28" rx="2" fill="#ea580c"/>
+  <text x="400" y="316" font-size="10" fill="currentColor" text-anchor="middle">tick</text>
+  <text x="400" y="328" font-size="9" fill="#16a34a" text-anchor="middle" font-weight="600">"wait stop"</text>
+  <text x="400" y="340" font-size="9" fill="#94a3b8" text-anchor="middle">markProcessing</text>
+  <text x="400" y="352" font-size="9" fill="#94a3b8" text-anchor="middle">→ query.push()</text>
+  <rect x="532" y="270" width="16" height="28" rx="2" fill="#ea580c"/>
+  <text x="540" y="316" font-size="10" fill="currentColor" text-anchor="middle">tick</text>
+  <text x="540" y="328" font-size="9" fill="#dc2626" text-anchor="middle" font-weight="600">/clear seen</text>
+  <text x="540" y="340" font-size="9" fill="#94a3b8" text-anchor="middle">query.end()</text>
+  <text x="540" y="352" font-size="9" fill="#94a3b8" text-anchor="middle">main exits naturally</text>
+  <rect x="672" y="270" width="16" height="28" rx="2" fill="#94a3b8"/>
+  <text x="680" y="316" font-size="10" fill="#94a3b8" text-anchor="middle">tick</text>
+  <text x="680" y="328" font-size="9" fill="#94a3b8" text-anchor="middle">done=true → return</text>
+  <text x="680" y="340" font-size="9" fill="#94a3b8" text-anchor="middle">finally clearInterval</text>
+  <text x="120" y="262" font-size="10" fill="#64748b">guarded by pollInFlight (re-entrant mutex)  ·  explicit catch (unhandled rejection kills container)</text>
+  <text x="400" y="376" font-size="10" fill="#dc2626" font-weight="600" text-anchor="middle">push appends to same MessageStream → SDK sees new user input mid-turn (no respawn)</text>
+</svg>
+<span class="figure-caption">图 T1.24 ｜ processQuery 双轨时间线：青色主轨持续 await SDK 事件，每事件 touchHeartbeat；橙色副轨 500ms tick 把新 inbound 消息 markProcessing 后 query.push 进活着的 stream。/clear 触发 query.end() 让主轨自然结束。</span>
+
+<details>
+<summary>ASCII 原版</summary>
+
+```
+t=  0ms  500    1000    1500    2000
+    ────────────────────────────────────  (main track: for await events)
+    activity init activity activity activity activity result
+              │                                          │
+              ▼ setContinuation (eager)                  ▼ dispatchResultText
+              persist before crash window               → step 15
+
+    ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─  (side track: setInterval 500ms)
+              tick          tick           tick           tick
+              no-op    push "wait stop"  /clear→end()    done→return
+                       markProcessing
+```
+
+</details>
+
 `processQuery()`（`poll-loop.ts:260-402`）把双轨并行做成「主 await 事件流 + setInterval 轮询 DB」：
 
 **a. 主轨：`for await` 消费事件流，每个事件 touchHeartbeat。**

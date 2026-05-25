@@ -132,6 +132,89 @@ return nextSeq;
 
 返回的 `nextSeq` 通过 `mcp__nanoclaw__send_message` 回流给 agent，成为后续 `edit_message` / `add_reaction` 引用的 agent-facing message ID（`db/messages-out.ts:36-44` 明示这是「load-bearing」而非纯防撞）。
 
+<svg viewBox="0 0 820 360" xmlns="http://www.w3.org/2000/svg" class="figure-svg" role="img" aria-label="markCompleted before writeMessageOut and odd/even seq interleaved across two tables">
+  <defs>
+    <marker id="wf-ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/></marker>
+  </defs>
+  <text x="410" y="20" font-size="13" font-weight="700" fill="currentColor" text-anchor="middle">result event → markCompleted (first!) → writeMessageOut (odd seq)</text>
+  <rect x="20" y="40" width="380" height="300" rx="6" fill="#ecfdf5" stroke="#0d9488" stroke-width="1.2"/>
+  <text x="210" y="58" font-size="12" font-weight="700" fill="#0f766e" text-anchor="middle">Write sequence (container)</text>
+  <rect x="36" y="74" width="348" height="42" rx="4" fill="#ffffff" stroke="#5eead4"/>
+  <text x="210" y="92" font-size="11" font-weight="700" fill="currentColor" text-anchor="middle">1. result event arrives</text>
+  <text x="210" y="106" font-size="10" fill="#64748b" text-anchor="middle">text = '&lt;message to="cli:local"&gt;pong&lt;/message&gt;'</text>
+  <line x1="210" y1="118" x2="210" y2="130" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#wf-ar)"/>
+  <rect x="36" y="132" width="348" height="48" rx="4" fill="#fef3c7" stroke="#ea580c" stroke-width="1.5"/>
+  <text x="210" y="150" font-size="11" font-weight="700" fill="currentColor" text-anchor="middle">2. markCompleted(initialBatchIds) — FIRST</text>
+  <text x="210" y="164" font-size="10" fill="#64748b" text-anchor="middle">writes outbound.processing_ack (status='completed')</text>
+  <text x="210" y="176" font-size="9" fill="#dc2626" text-anchor="middle">prevents host sweep from seeing stale 'processing'</text>
+  <line x1="210" y1="182" x2="210" y2="194" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#wf-ar)"/>
+  <rect x="36" y="196" width="348" height="48" rx="4" fill="#ffffff" stroke="#5eead4"/>
+  <text x="210" y="214" font-size="11" font-weight="700" fill="currentColor" text-anchor="middle">3. dispatchResultText → sendToDestination</text>
+  <text x="210" y="228" font-size="10" fill="#64748b" text-anchor="middle">findByName('cli:local') · resolveDestinationThread</text>
+  <text x="210" y="240" font-size="9" fill="#94a3b8" text-anchor="middle">per-destination, NOT routing.threadId</text>
+  <line x1="210" y1="246" x2="210" y2="258" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#wf-ar)"/>
+  <rect x="36" y="260" width="348" height="74" rx="4" fill="#fef3c7" stroke="#ea580c" stroke-width="1.5"/>
+  <text x="210" y="278" font-size="11" font-weight="700" fill="currentColor" text-anchor="middle">4. writeMessageOut(...)</text>
+  <text x="210" y="292" font-size="10" fill="#64748b" text-anchor="middle">max := MAX(maxOut, maxIn) — both DBs!</text>
+  <text x="210" y="304" font-size="10" fill="#64748b" text-anchor="middle">nextSeq = (max even) ? max+1 : max+2  (next odd)</text>
+  <text x="210" y="316" font-size="10" fill="#64748b" text-anchor="middle">INSERT INTO messages_out · timestamp = datetime('now')</text>
+  <text x="210" y="328" font-size="9" fill="#7c3aed" text-anchor="middle">returns nextSeq = agent-facing message id (load-bearing)</text>
+  <rect x="420" y="40" width="380" height="300" rx="6" fill="#ddd6fe" stroke="#7c3aed" stroke-width="1.2"/>
+  <text x="610" y="58" font-size="12" font-weight="700" fill="#5b21b6" text-anchor="middle">Why seq from MAX of both tables</text>
+  <text x="610" y="78" font-size="11" font-weight="600" fill="currentColor" text-anchor="middle">global ordering across messages_in + messages_out</text>
+  <line x1="450" y1="100" x2="770" y2="100" stroke="#94a3b8"/>
+  <rect x="460" y="106" width="56" height="40" rx="4" fill="#0ea5e9" opacity="0.18" stroke="#0ea5e9"/>
+  <text x="488" y="122" font-size="11" font-weight="700" fill="currentColor" text-anchor="middle">seq 2</text>
+  <text x="488" y="136" font-size="9" fill="#64748b" text-anchor="middle">in (ping)</text>
+  <rect x="526" y="106" width="56" height="40" rx="4" fill="#ea580c" opacity="0.18" stroke="#ea580c"/>
+  <text x="554" y="122" font-size="11" font-weight="700" fill="currentColor" text-anchor="middle">seq 3</text>
+  <text x="554" y="136" font-size="9" fill="#64748b" text-anchor="middle">out (pong)</text>
+  <rect x="592" y="106" width="56" height="40" rx="4" fill="#0ea5e9" opacity="0.18" stroke="#0ea5e9"/>
+  <text x="620" y="122" font-size="11" font-weight="700" fill="currentColor" text-anchor="middle">seq 4</text>
+  <text x="620" y="136" font-size="9" fill="#64748b" text-anchor="middle">in (next)</text>
+  <rect x="658" y="106" width="56" height="40" rx="4" fill="#ea580c" opacity="0.18" stroke="#ea580c"/>
+  <text x="686" y="122" font-size="11" font-weight="700" fill="currentColor" text-anchor="middle">seq 5</text>
+  <text x="686" y="136" font-size="9" fill="#64748b" text-anchor="middle">out</text>
+  <rect x="724" y="106" width="46" height="40" rx="4" fill="#94a3b8" opacity="0.10" stroke="#94a3b8" stroke-dasharray="2,2"/>
+  <text x="747" y="128" font-size="10" fill="#94a3b8" text-anchor="middle">…</text>
+  <text x="610" y="170" font-size="10" fill="#0ea5e9" text-anchor="middle" font-weight="600">even = host writes (inbound)</text>
+  <text x="610" y="184" font-size="10" fill="#ea580c" text-anchor="middle" font-weight="600">odd  = container writes (outbound)</text>
+  <text x="610" y="206" font-size="10" fill="#64748b" text-anchor="middle">naive (outbound-only MAX) would give seq=1 here</text>
+  <text x="610" y="220" font-size="10" fill="#dc2626" text-anchor="middle">→ user sees "pong" before "ping" — global order broken</text>
+  <text x="610" y="244" font-size="11" font-weight="700" fill="currentColor" text-anchor="middle">Cross-DB read is safe</text>
+  <text x="610" y="258" font-size="10" fill="#64748b" text-anchor="middle">each side only READS the other DB,</text>
+  <text x="610" y="272" font-size="10" fill="#64748b" text-anchor="middle">never WRITES → single-writer invariant intact</text>
+  <text x="610" y="296" font-size="11" font-weight="700" fill="currentColor" text-anchor="middle">deliver_after = NULL</text>
+  <text x="610" y="310" font-size="10" fill="#64748b" text-anchor="middle">→ host's 1s poll picks it up immediately (step 16)</text>
+  <text x="610" y="324" font-size="10" fill="#94a3b8" text-anchor="middle">scheduled tasks set future timestamp instead</text>
+</svg>
+<span class="figure-caption">图 T1.25 ｜ Result 落地顺序（左）：markCompleted 写 processing_ack 必先于 writeMessageOut（防止 host 看 stale claim）。Seq 奇偶约定（右）：container 写奇数、host 写偶数，跨表 MAX 拉齐保证全局序——naïve outbound-only MAX 会让 pong 排在 ping 前面。</span>
+
+<details>
+<summary>ASCII 原版</summary>
+
+```
+result event arrives
+  │
+  ▼
+markCompleted(initialBatchIds)   ── writes outbound.processing_ack 'completed'
+  │       (FIRST: prevent host sweep seeing stale 'processing')
+  ▼
+dispatchResultText('<message to="cli:local">pong</message>')
+  │
+  ▼
+sendToDestination → writeMessageOut(...)
+  max := MAX(maxOut, maxIn)            // cross-DB read, safe
+  nextSeq = next odd starting from max // even=in, odd=out
+  INSERT INTO messages_out             // timestamp = datetime('now')
+  deliver_after = NULL                 // host picks up next tick
+
+global seq:   [in seq=2 ping] → [out seq=3 pong] → [in seq=4 ...] → ...
+              even (host writes inbound)        odd (container writes outbound)
+```
+
+</details>
+
 ### e. 主轨 for await 继续 / 自然结束
 
 `result` 事件处理完后，主轨 `for await` 没有 `break` —— 继续等下一个事件。SDK 在 `result` 之后通常 close 输入流（特别是输入流没有更多 `push`），迭代器自然 `done`，主轨 try 退出、finally `done = true; clearInterval(pollHandle)`。

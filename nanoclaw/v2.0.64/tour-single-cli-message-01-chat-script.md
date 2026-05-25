@@ -119,6 +119,35 @@ process.exit(firstReplySeen ? 0 : 3);
 
 整体时序：
 
+<svg viewBox="0 0 760 280" xmlns="http://www.w3.org/2000/svg" class="figure-svg" role="img" aria-label="Sequence diagram of shell, chat.ts, and the CLI Unix socket showing connect, write, and silence-timer wait">
+  <defs>
+    <marker id="ar11" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/></marker>
+  </defs>
+  <rect x="40" y="20" width="140" height="28" rx="4" fill="#0ea5e9" opacity="0.15" stroke="#0ea5e9" stroke-width="1.2"/>
+  <text x="110" y="38" text-anchor="middle" font-size="12" font-weight="600" fill="currentColor">shell</text>
+  <rect x="310" y="20" width="140" height="28" rx="4" fill="#0d9488" opacity="0.18" stroke="#0d9488" stroke-width="1.2"/>
+  <text x="380" y="38" text-anchor="middle" font-size="12" font-weight="600" fill="currentColor">chat.ts (client)</text>
+  <rect x="580" y="20" width="140" height="28" rx="4" fill="#7c3aed" opacity="0.18" stroke="#7c3aed" stroke-width="1.2"/>
+  <text x="650" y="38" text-anchor="middle" font-size="12" font-weight="600" fill="currentColor">data/cli.sock</text>
+  <line x1="110" y1="50" x2="110" y2="260" stroke="#cbd5e1" stroke-dasharray="3,3"/>
+  <line x1="380" y1="50" x2="380" y2="260" stroke="#cbd5e1" stroke-dasharray="3,3"/>
+  <line x1="650" y1="50" x2="650" y2="260" stroke="#cbd5e1" stroke-dasharray="3,3"/>
+  <line x1="110" y1="80" x2="376" y2="80" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar11)"/>
+  <text x="243" y="74" text-anchor="middle" font-size="11" fill="#64748b">pnpm run chat "ping"</text>
+  <line x1="380" y1="120" x2="646" y2="120" stroke="#ea580c" stroke-width="1.4" marker-end="url(#ar11)"/>
+  <text x="513" y="114" text-anchor="middle" font-size="11" fill="currentColor">net.connect(socketPath)</text>
+  <line x1="380" y1="160" x2="646" y2="160" stroke="#ea580c" stroke-width="1.4" marker-end="url(#ar11)"/>
+  <text x="513" y="154" text-anchor="middle" font-size="11" fill="currentColor">write {"text":"ping"}\n</text>
+  <rect x="320" y="190" width="120" height="56" rx="6" fill="#fed7aa" stroke="#ea580c" stroke-width="1.2"/>
+  <text x="380" y="210" text-anchor="middle" font-size="11" font-weight="600" fill="currentColor">silence: 2s</text>
+  <text x="380" y="226" text-anchor="middle" font-size="10" fill="#64748b">hardTimer: 120s</text>
+  <text x="380" y="240" text-anchor="middle" font-size="10" fill="#64748b">wait reply</text>
+</svg>
+<span class="figure-caption">图 T1.1 ｜ chat.ts 客户端的三步时序：shell 拉起进程 → 连接 cli.sock → 写一行 JSON 后进入 silence/hard 双定时器等待。</span>
+
+<details>
+<summary>ASCII 原版</summary>
+
 ```
 shell                         chat.ts                 data/cli.sock
   │   pnpm run chat "ping"      │                         │
@@ -129,6 +158,8 @@ shell                         chat.ts                 data/cli.sock
   │                             │ ───────────────────────►│
   │                             │ wait reply (silence:2s) │
 ```
+
+</details>
 
 注意一个反直觉的小细节：客户端 **第一时间就 write**，连 `connect` 事件都不必等 —— Node 的 `net.Socket` 在 `connect` 完成前会自己 buffer 写入。但 `scripts/chat.ts:58-67` 明确把 `write` 放在 `'connect'` 回调里，**顺便启动 `hardTimer`**。这样 hardTimer 不会因为 connect 阶段花了几百毫秒而提前超时；hardTimer 衡量的是"连上之后没回复"的时间窗口。
 

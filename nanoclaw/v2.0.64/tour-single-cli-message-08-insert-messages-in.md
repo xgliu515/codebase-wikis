@@ -177,6 +177,49 @@ if (wake) {
 
 **整条时序**：
 
+<svg viewBox="0 0 760 420" xmlns="http://www.w3.org/2000/svg" class="figure-svg" role="img" aria-label="Timeline showing writeSessionMessage finishing in milliseconds and wakeContainer returning quickly while the container boots asynchronously in the background">
+  <defs>
+    <marker id="ar81" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/></marker>
+  </defs>
+  <rect x="20" y="20" width="720" height="36" rx="6" fill="#0d9488" opacity="0.18" stroke="#0d9488" stroke-width="1.5"/>
+  <text x="380" y="42" text-anchor="middle" font-size="13" font-weight="700" fill="currentColor">router.deliverToAgent ── 整条同步段 &lt; 50ms</text>
+  <rect x="20" y="70" width="720" height="170" rx="8" fill="#fed7aa" opacity="0.25" stroke="#ea580c" stroke-width="1.2"/>
+  <text x="30" y="88" font-size="11" font-weight="700" fill="#ea580c">写盘段 writeSessionMessage</text>
+  <text x="730" y="88" text-anchor="end" font-size="10" fill="#64748b">毫秒级</text>
+  <rect x="40" y="98" width="200" height="40" rx="4" fill="#ffffff" stroke="#ea580c" stroke-width="1"/>
+  <text x="140" y="116" text-anchor="middle" font-size="11" font-weight="600" fill="currentColor">extractAttachmentFiles</text>
+  <text x="140" y="130" text-anchor="middle" font-size="10" fill="#64748b">无 attachment 走过场</text>
+  <line x1="240" y1="118" x2="276" y2="118" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar81)"/>
+  <rect x="280" y="98" width="180" height="40" rx="4" fill="#ffffff" stroke="#ea580c" stroke-width="1"/>
+  <text x="370" y="116" text-anchor="middle" font-size="11" font-weight="600" fill="currentColor">openInboundDb</text>
+  <text x="370" y="130" text-anchor="middle" font-size="10" fill="#64748b">journal_mode=DELETE</text>
+  <line x1="460" y1="118" x2="496" y2="118" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar81)"/>
+  <rect x="500" y="98" width="220" height="40" rx="4" fill="#fed7aa" stroke="#ea580c" stroke-width="1.5"/>
+  <text x="610" y="116" text-anchor="middle" font-size="11" font-weight="700" fill="currentColor">insertMessage</text>
+  <text x="610" y="130" text-anchor="middle" font-size="10" fill="#64748b">seq=2, status=pending, trigger=1</text>
+  <line x1="610" y1="138" x2="610" y2="156" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar81)"/>
+  <rect x="280" y="160" width="320" height="40" rx="4" fill="#f0fdf4" stroke="#16a34a" stroke-width="1.5"/>
+  <text x="440" y="178" text-anchor="middle" font-size="11" font-weight="700" fill="currentColor">db.close()  ← 跨 mount 可见性触发点</text>
+  <text x="440" y="192" text-anchor="middle" font-size="10" fill="#64748b">finally 子句，throw 也保证 close</text>
+  <line x1="280" y1="180" x2="244" y2="180" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar81)"/>
+  <rect x="40" y="208" width="200" height="26" rx="4" fill="#ffffff" stroke="#ea580c" stroke-width="1"/>
+  <text x="140" y="225" text-anchor="middle" font-size="10" fill="#64748b">updateSession(last_active)</text>
+  <rect x="20" y="252" width="720" height="76" rx="8" fill="#99f6e4" opacity="0.3" stroke="#0d9488" stroke-width="1.2"/>
+  <text x="30" y="270" font-size="11" font-weight="700" fill="#0d9488">wake 段 wakeContainer (await)</text>
+  <text x="730" y="270" text-anchor="end" font-size="10" fill="#64748b">~10ms（仅 spawn 同步段）</text>
+  <text x="40" y="290" font-size="10" fill="#64748b">activeContainers.has? → no</text>
+  <text x="40" y="304" font-size="10" fill="#64748b">wakePromises.get? → none</text>
+  <text x="40" y="318" font-size="10" fill="#64748b">spawnContainer(...) → 同步段 return → promise pending</text>
+  <line x1="380" y1="330" x2="380" y2="350" stroke="#7c3aed" stroke-width="1.4" stroke-dasharray="4,3" marker-end="url(#ar81)"/>
+  <rect x="20" y="354" width="720" height="56" rx="8" fill="#ddd6fe" opacity="0.4" stroke="#7c3aed" stroke-width="1.2" stroke-dasharray="4,3"/>
+  <text x="30" y="374" font-size="11" font-weight="700" fill="#7c3aed">后台异步段（已脱离 routeInbound 调用栈）</text>
+  <text x="380" y="394" text-anchor="middle" font-size="11" fill="currentColor">docker run → container boots → agent-runner poll messages_in</text>
+</svg>
+<span class="figure-caption">图 T1.6 ｜ write 与 wake 分两段：写盘段毫秒级完成（db.close 是跨 mount 可见性触发点），wake 同步段只发 spawn 即 return，container boot 在后台进行——保证 channel adapter 在 50ms 内对平台 webhook 回应。</span>
+
+<details>
+<summary>ASCII 原版</summary>
+
 ```
 router.deliverToAgent
    │
@@ -199,6 +242,8 @@ router.deliverToAgent
                                                   (后台异步)
                                                   docker run → container boots → poll messages_in
 ```
+
+</details>
 
 CLI adapter 收到 routeInbound 的 resolved Promise，整条消息从 stdin 到 router return 全程 <50ms（不算 container boot）。spawn 失败不影响这条返回——`wakeContainer` 把内部 throw 转成 `return false`（`src/container-runner.ts:97-100`）：
 

@@ -98,6 +98,51 @@ SELECT mg.*, COUNT(mga.id) AS agent_count
 
 返回值是 `{ mg, agentCount } | null`。三种状态对应三种走向：
 
+<svg viewBox="0 0 760 340" xmlns="http://www.w3.org/2000/svg" class="figure-svg" role="img" aria-label="Decision tree for the messaging_group combined lookup: three states drive three distinct routing outcomes">
+  <defs>
+    <marker id="ar41" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/></marker>
+  </defs>
+  <rect x="280" y="20" width="200" height="56" rx="8" fill="#7c3aed" opacity="0.18" stroke="#7c3aed" stroke-width="1.5"/>
+  <text x="380" y="42" text-anchor="middle" font-size="13" font-weight="700" fill="currentColor">combined lookup</text>
+  <text x="380" y="60" text-anchor="middle" font-size="10" fill="#64748b">LEFT JOIN + COUNT</text>
+  <text x="380" y="72" text-anchor="middle" font-size="10" fill="#94a3b8">src/db/messaging-groups.ts:53</text>
+  <line x1="380" y1="76" x2="130" y2="124" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar41)"/>
+  <line x1="380" y1="76" x2="380" y2="124" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar41)"/>
+  <line x1="380" y1="76" x2="630" y2="124" stroke="#ea580c" stroke-width="1.6" marker-end="url(#ar41)"/>
+  <rect x="30" y="130" width="200" height="64" rx="6" fill="#f1f5f9" stroke="#94a3b8" stroke-width="1.2"/>
+  <text x="130" y="150" text-anchor="middle" font-size="12" font-weight="600" fill="currentColor">null</text>
+  <text x="130" y="168" text-anchor="middle" font-size="10" fill="#64748b">channel 从未见过</text>
+  <text x="130" y="184" text-anchor="middle" font-size="10" fill="#64748b">1 read 决策</text>
+  <rect x="280" y="130" width="200" height="64" rx="6" fill="#fef2f2" stroke="#dc2626" stroke-width="1.2"/>
+  <text x="380" y="150" text-anchor="middle" font-size="12" font-weight="600" fill="#dc2626">{ mg, agentCount=0 }</text>
+  <text x="380" y="168" text-anchor="middle" font-size="10" fill="#64748b">见过但没 wiring</text>
+  <text x="380" y="184" text-anchor="middle" font-size="10" fill="#64748b">denied / approval 分支</text>
+  <rect x="530" y="130" width="200" height="64" rx="6" fill="#fed7aa" stroke="#ea580c" stroke-width="1.5"/>
+  <text x="630" y="150" text-anchor="middle" font-size="12" font-weight="700" fill="currentColor">{ mg, agentCount &gt; 0 }</text>
+  <text x="630" y="168" text-anchor="middle" font-size="10" fill="#64748b">happy path</text>
+  <text x="630" y="184" text-anchor="middle" font-size="10" fill="#64748b">CLI ping 走这条</text>
+  <line x1="130" y1="194" x2="130" y2="232" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar41)"/>
+  <line x1="380" y1="194" x2="380" y2="232" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar41)"/>
+  <line x1="630" y1="194" x2="630" y2="232" stroke="#ea580c" stroke-width="1.6" marker-end="url(#ar41)"/>
+  <rect x="30" y="236" width="200" height="80" rx="6" fill="#f0fdf4" stroke="#16a34a" stroke-width="1"/>
+  <text x="130" y="256" text-anchor="middle" font-size="11" font-weight="600" fill="currentColor">isMention?</text>
+  <text x="130" y="274" text-anchor="middle" font-size="10" fill="#64748b">false → return（零 DB 写）</text>
+  <text x="130" y="290" text-anchor="middle" font-size="10" fill="#64748b">true → 现造 mg +</text>
+  <text x="130" y="304" text-anchor="middle" font-size="10" fill="#64748b">触发 channel approval</text>
+  <rect x="280" y="236" width="200" height="80" rx="6" fill="#fef2f2" stroke="#dc2626" stroke-width="1"/>
+  <text x="380" y="256" text-anchor="middle" font-size="11" font-weight="600" fill="currentColor">denied_at 非空?</text>
+  <text x="380" y="274" text-anchor="middle" font-size="10" fill="#64748b">是 → return</text>
+  <text x="380" y="290" text-anchor="middle" font-size="10" fill="#64748b">否 → dropped_messages</text>
+  <text x="380" y="304" text-anchor="middle" font-size="10" fill="#64748b">+ channelRequestGate</text>
+  <rect x="530" y="236" width="200" height="80" rx="6" fill="#fed7aa" stroke="#ea580c" stroke-width="1.5"/>
+  <text x="630" y="256" text-anchor="middle" font-size="11" font-weight="700" fill="currentColor">进入 fan-out</text>
+  <text x="630" y="274" text-anchor="middle" font-size="10" fill="#64748b">sender resolve →</text>
+  <text x="630" y="290" text-anchor="middle" font-size="10" fill="#64748b">wiring loop →</text>
+  <text x="630" y="304" text-anchor="middle" font-size="10" fill="#64748b">access gate → session</text>
+</svg>
+<span class="figure-caption">图 T1.3 ｜ messaging_group combined lookup 把 3 种状态压成 1 次 DB read：闲话静默零写、未注册触发审批、happy path 进 fan-out。CLI ping 永远走最右一支。</span>
+
+
 1. **`null`（行不存在）** → 这个 channel 完全没见过。看 `isMention`：
    - 不是 @bot → `return`，**零 DB 写**（`src/router.ts:184`）。这就是闲话静默。
    - 是 @bot → 现造一行 `mg` 进 `messaging_groups`（`unknown_sender_policy='request_approval'`，`denied_at=null`），落到下面的 agentCount=0 分支。

@@ -113,6 +113,47 @@ CREATE TABLE user_dms (
 - 给一个 user 在某个 channel 上发**主动消息**（审批卡片、pairing 提示、host 通知）时，host 需要知道往哪个 messaging_group 投递。
 - 由 `ensureUserDm()`（`src/modules/permissions/user-dm.ts:52`）lazy 填——cache miss 时根据 channel adapter 类型走两条路径之一：
 
+<svg viewBox="0 0 880 320" xmlns="http://www.w3.org/2000/svg" class="figure-svg" role="img" aria-label="Two-path cold DM resolution: direct-addressable vs resolution-required platforms">
+<defs><marker id="ar42" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/></marker></defs>
+<rect x="20" y="20" width="400" height="280" rx="8" fill="#f0fdf4" stroke="#16a34a" stroke-width="1.5"/>
+<text x="220" y="46" text-anchor="middle" font-size="14" font-weight="700" fill="currentColor">Direct-addressable</text>
+<text x="220" y="64" text-anchor="middle" font-size="11" fill="#64748b">Telegram · WhatsApp · iMessage · Email · Matrix</text>
+<rect x="60" y="90" width="140" height="50" rx="6" fill="#fff" stroke="#cbd5e1" stroke-width="1.2"/>
+<text x="130" y="112" text-anchor="middle" font-size="11" font-weight="600" fill="currentColor">user handle</text>
+<text x="130" y="128" text-anchor="middle" font-size="10" fill="#64748b">'tg:12345'</text>
+<line x1="200" y1="115" x2="240" y2="115" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar42)"/>
+<rect x="240" y="90" width="160" height="50" rx="6" fill="#dcfce7" stroke="#16a34a" stroke-width="1.2"/>
+<text x="320" y="112" text-anchor="middle" font-size="11" font-weight="600" fill="currentColor">handle == DM chat id</text>
+<text x="320" y="128" text-anchor="middle" font-size="10" fill="#64748b">no API call</text>
+<rect x="60" y="180" width="340" height="90" rx="6" fill="#fff" stroke="#cbd5e1" stroke-width="1"/>
+<text x="230" y="204" text-anchor="middle" font-size="11" font-weight="600" fill="currentColor">new messaging_group row</text>
+<text x="230" y="222" text-anchor="middle" font-size="10" fill="#64748b">platform_id = handle</text>
+<text x="230" y="238" text-anchor="middle" font-size="10" fill="#64748b">is_group = 0</text>
+<text x="230" y="256" text-anchor="middle" font-size="10" fill="#64748b">user_dms cached for next time</text>
+<line x1="320" y1="140" x2="320" y2="180" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar42)"/>
+<rect x="460" y="20" width="400" height="280" rx="8" fill="#fef2f2" stroke="#ea580c" stroke-width="1.5"/>
+<text x="660" y="46" text-anchor="middle" font-size="14" font-weight="700" fill="currentColor">Resolution-required</text>
+<text x="660" y="64" text-anchor="middle" font-size="11" fill="#64748b">Discord · Slack · Teams · Webex · gChat</text>
+<rect x="500" y="90" width="140" height="50" rx="6" fill="#fff" stroke="#cbd5e1" stroke-width="1.2"/>
+<text x="570" y="112" text-anchor="middle" font-size="11" font-weight="600" fill="currentColor">user handle</text>
+<text x="570" y="128" text-anchor="middle" font-size="10" fill="#64748b">'discord:user-A'</text>
+<line x1="640" y1="115" x2="680" y2="115" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar42)"/>
+<rect x="680" y="90" width="160" height="50" rx="6" fill="#fed7aa" stroke="#ea580c" stroke-width="1.2"/>
+<text x="760" y="108" text-anchor="middle" font-size="11" font-weight="600" fill="currentColor">adapter.openDM(handle)</text>
+<text x="760" y="124" text-anchor="middle" font-size="10" fill="#64748b">platform API call</text>
+<text x="760" y="136" text-anchor="middle" font-size="10" fill="#64748b">→ new channel id</text>
+<rect x="500" y="180" width="340" height="90" rx="6" fill="#fff" stroke="#cbd5e1" stroke-width="1"/>
+<text x="670" y="204" text-anchor="middle" font-size="11" font-weight="600" fill="currentColor">new messaging_group row</text>
+<text x="670" y="222" text-anchor="middle" font-size="10" fill="#64748b">platform_id = &lt;DM channel id&gt;</text>
+<text x="670" y="238" text-anchor="middle" font-size="10" fill="#64748b">openDM is idempotent → retry safe</text>
+<text x="670" y="256" text-anchor="middle" font-size="10" fill="#64748b">user_dms cached → subsequent: DB read only</text>
+<line x1="760" y1="140" x2="760" y2="180" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar42)"/>
+</svg>
+<span class="figure-caption">图 R4.2 ｜ 给陌生用户发主动消息时，ensureUserDm 走的两条路径。direct-addressable 直接用 handle 当 DM chat id；resolution-required 必须先 openDM 拿一个 platform-allocated channel id。命中 user_dms 缓存就只读 DB。</span>
+
+<details>
+<summary>ASCII 原版</summary>
+
 ```
 Direct-addressable          Resolution-required
 (Telegram, WhatsApp,        (Discord, Slack, Teams,
@@ -123,6 +164,8 @@ Direct-addressable          Resolution-required
   new messaging_group         channel id；缓存到 user_dms
   with platform_id=handle
 ```
+
+</details>
 
 - 缓存命中只是一次 DB 读；命中失败才走 API。platform 侧的 `openDM` 都是幂等的，所以重试安全。
 
@@ -209,7 +252,74 @@ CREATE INDEX idx_sessions_lookup     ON sessions(messaging_group_id, thread_id);
 
 每一行对应 `data/v2-sessions/<agent_group_id>/<session_id>/` 文件夹（含 inbound.db + outbound.db）。`session_mode` 决定 session 怎么被复用（§4.4）。
 
-#### Entity 关系（ASCII ER 图）
+#### Entity 关系（ER 图）
+
+<svg viewBox="0 0 880 520" xmlns="http://www.w3.org/2000/svg" class="figure-svg" role="img" aria-label="Entity relationship diagram for NanoClaw permissions and routing tables">
+<defs><marker id="ar41" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/></marker></defs>
+<rect x="360" y="10" width="160" height="64" rx="6" fill="#e0f2fe" stroke="#0ea5e9" stroke-width="1.5"/>
+<text x="440" y="32" text-anchor="middle" font-size="13" font-weight="700" fill="currentColor">users</text>
+<text x="440" y="50" text-anchor="middle" font-size="10" fill="#64748b">id = channel:handle</text>
+<text x="440" y="64" text-anchor="middle" font-size="10" fill="#64748b">kind, display_name</text>
+<rect x="20" y="120" width="170" height="78" rx="6" fill="#e0f2fe" stroke="#0ea5e9" stroke-width="1.2"/>
+<text x="105" y="140" text-anchor="middle" font-size="12" font-weight="600" fill="currentColor">user_roles</text>
+<text x="105" y="158" text-anchor="middle" font-size="10" fill="#64748b">(user, role, ag?)</text>
+<text x="105" y="174" text-anchor="middle" font-size="10" fill="#64748b">owner / admin</text>
+<text x="105" y="190" text-anchor="middle" font-size="10" fill="#64748b">ag=NULL → global</text>
+<rect x="220" y="120" width="170" height="78" rx="6" fill="#e0f2fe" stroke="#0ea5e9" stroke-width="1.2"/>
+<text x="305" y="140" text-anchor="middle" font-size="12" font-weight="600" fill="currentColor">agent_group_members</text>
+<text x="305" y="158" text-anchor="middle" font-size="10" fill="#64748b">(user, agent_group)</text>
+<text x="305" y="174" text-anchor="middle" font-size="10" fill="#64748b">explicit member</text>
+<text x="305" y="190" text-anchor="middle" font-size="10" fill="#64748b">added_by, added_at</text>
+<rect x="420" y="120" width="170" height="78" rx="6" fill="#e0f2fe" stroke="#0ea5e9" stroke-width="1.2"/>
+<text x="505" y="140" text-anchor="middle" font-size="12" font-weight="600" fill="currentColor">user_dms</text>
+<text x="505" y="158" text-anchor="middle" font-size="10" fill="#64748b">cold-DM cache</text>
+<text x="505" y="174" text-anchor="middle" font-size="10" fill="#64748b">user × channel_type</text>
+<text x="505" y="190" text-anchor="middle" font-size="10" fill="#64748b">→ messaging_group</text>
+<rect x="620" y="120" width="170" height="78" rx="6" fill="#fed7aa" stroke="#ea580c" stroke-width="1.2"/>
+<text x="705" y="140" text-anchor="middle" font-size="12" font-weight="600" fill="currentColor">messaging_groups</text>
+<text x="705" y="158" text-anchor="middle" font-size="10" fill="#64748b">channel_type, platform_id</text>
+<text x="705" y="174" text-anchor="middle" font-size="10" fill="#64748b">is_group, denied_at</text>
+<text x="705" y="190" text-anchor="middle" font-size="10" fill="#64748b">unknown_sender_policy</text>
+<line x1="408" y1="74" x2="160" y2="120" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar41)"/>
+<line x1="430" y1="74" x2="290" y2="120" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar41)"/>
+<line x1="455" y1="74" x2="495" y2="120" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar41)"/>
+<line x1="500" y1="74" x2="680" y2="120" stroke="#94a3b8" stroke-width="1.2" stroke-dasharray="3,2" marker-end="url(#ar41)"/>
+<rect x="320" y="240" width="240" height="60" rx="6" fill="#fef3c7" stroke="#d97706" stroke-width="1.5"/>
+<text x="440" y="262" text-anchor="middle" font-size="13" font-weight="700" fill="currentColor">messaging_group_agents</text>
+<text x="440" y="280" text-anchor="middle" font-size="10" fill="#64748b">(mg ↔ ag) wiring · engage_mode</text>
+<text x="440" y="294" text-anchor="middle" font-size="10" fill="#64748b">sender_scope · session_mode · priority</text>
+<line x1="705" y1="198" x2="555" y2="240" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar41)"/>
+<rect x="40" y="340" width="180" height="70" rx="6" fill="#ddd6fe" stroke="#7c3aed" stroke-width="1.5"/>
+<text x="130" y="362" text-anchor="middle" font-size="13" font-weight="700" fill="currentColor">agent_groups</text>
+<text x="130" y="380" text-anchor="middle" font-size="10" fill="#64748b">id, name, folder</text>
+<text x="130" y="396" text-anchor="middle" font-size="10" fill="#64748b">groups/&lt;folder&gt;/</text>
+<rect x="260" y="340" width="180" height="70" rx="6" fill="#ddd6fe" stroke="#7c3aed" stroke-width="1.2"/>
+<text x="350" y="362" text-anchor="middle" font-size="12" font-weight="600" fill="currentColor">container_configs</text>
+<text x="350" y="380" text-anchor="middle" font-size="10" fill="#64748b">per agent group</text>
+<text x="350" y="396" text-anchor="middle" font-size="10" fill="#64748b">image_tag, packages, mcp</text>
+<rect x="500" y="340" width="200" height="70" rx="6" fill="#ddd6fe" stroke="#7c3aed" stroke-width="1.5"/>
+<text x="600" y="362" text-anchor="middle" font-size="13" font-weight="700" fill="currentColor">sessions</text>
+<text x="600" y="380" text-anchor="middle" font-size="10" fill="#64748b">(ag, mg?, thread?)</text>
+<text x="600" y="396" text-anchor="middle" font-size="10" fill="#64748b">status, container_status</text>
+<line x1="370" y1="300" x2="200" y2="340" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar41)"/>
+<line x1="305" y1="198" x2="195" y2="340" stroke="#94a3b8" stroke-width="1.2" stroke-dasharray="3,2" marker-end="url(#ar41)"/>
+<line x1="160" y1="198" x2="130" y2="340" stroke="#94a3b8" stroke-width="1.2" stroke-dasharray="3,2" marker-end="url(#ar41)"/>
+<line x1="220" y1="375" x2="260" y2="375" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar41)"/>
+<line x1="220" y1="375" x2="500" y2="375" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar41)"/>
+<line x1="500" y1="300" x2="580" y2="340" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar41)"/>
+<line x1="705" y1="198" x2="660" y2="340" stroke="#94a3b8" stroke-width="1.2" stroke-dasharray="3,2" marker-end="url(#ar41)"/>
+<rect x="500" y="440" width="320" height="56" rx="6" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1"/>
+<text x="660" y="462" text-anchor="middle" font-size="12" font-weight="600" fill="currentColor">data/v2-sessions/&lt;ag&gt;/&lt;sid&gt;/</text>
+<text x="660" y="480" text-anchor="middle" font-size="10" fill="#64748b">inbound.db · outbound.db · .heartbeat</text>
+<line x1="600" y1="410" x2="640" y2="440" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar41)"/>
+<rect x="40" y="450" width="220" height="46" rx="4" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1"/>
+<text x="150" y="470" text-anchor="middle" font-size="10" font-weight="600" fill="#64748b">用色：蓝=identity 表 · 橙=channel 侧</text>
+<text x="150" y="486" text-anchor="middle" font-size="10" fill="#64748b">紫=agent / session · 黄=wiring</text>
+</svg>
+<span class="figure-caption">图 R4.1 ｜ NanoClaw 权限 + 路由的 7 张核心表关系：users 是身份源；user_roles / agent_group_members / user_dms 都挂在 user 上；messaging_group_agents 是 wiring 桥；sessions 由 agent_group 决定文件夹根，messaging_group 决定隔离。</span>
+
+<details>
+<summary>ASCII 原版</summary>
 
 ```
                 +----------------+
@@ -272,6 +382,8 @@ CREATE INDEX idx_sessions_lookup     ON sessions(messaging_group_id, thread_id);
                   data/v2-sessions/<ag>/<sid>/
                     inbound.db / outbound.db / .heartbeat
 ```
+
+</details>
 
 权限相关的三张表（`user_roles`、`agent_group_members`、`user_dms`）**完全独立于 wiring**——切断哪个 channel 接哪个 agent 不影响一个用户是不是 owner。
 
@@ -415,6 +527,72 @@ if (adapterSupportsThreads && effectiveSessionMode !== 'agent-shared' && mg.is_g
 
 把上一节的代码片段拼起来，`resolveSession()`（`src/session-manager.ts:92-133`）的完整决策树：
 
+<svg viewBox="0 0 880 440" xmlns="http://www.w3.org/2000/svg" class="figure-svg" role="img" aria-label="resolveSession decision tree: three session_mode branches converge to hit-or-create logic">
+<defs><marker id="ar43" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/></marker></defs>
+<rect x="340" y="20" width="200" height="46" rx="6" fill="#ddd6fe" stroke="#7c3aed" stroke-width="1.5"/>
+<text x="440" y="42" text-anchor="middle" font-size="13" font-weight="700" fill="currentColor">resolveSession()</text>
+<text x="440" y="58" text-anchor="middle" font-size="10" fill="#64748b">switch (sessionMode)</text>
+<line x1="380" y1="66" x2="140" y2="110" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar43)"/>
+<line x1="440" y1="66" x2="440" y2="110" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar43)"/>
+<line x1="500" y1="66" x2="740" y2="110" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar43)"/>
+<text x="220" y="88" text-anchor="middle" font-size="11" font-weight="600" fill="#7c3aed">agent-shared</text>
+<text x="440" y="88" text-anchor="middle" font-size="11" font-weight="600" fill="#7c3aed">shared</text>
+<text x="660" y="88" text-anchor="middle" font-size="11" font-weight="600" fill="#7c3aed">per-thread</text>
+<rect x="40" y="110" width="200" height="74" rx="6" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.2"/>
+<text x="140" y="132" text-anchor="middle" font-size="12" font-weight="600" fill="currentColor">findSessionByAgentGroup</text>
+<text x="140" y="150" text-anchor="middle" font-size="10" fill="#64748b">(agentGroupId)</text>
+<text x="140" y="166" text-anchor="middle" font-size="10" fill="#64748b">忽略 mg / thread</text>
+<text x="140" y="178" text-anchor="middle" font-size="9" fill="#94a3b8">→ 全 agent 一个 session</text>
+<rect x="340" y="110" width="200" height="74" rx="6" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.2"/>
+<text x="440" y="132" text-anchor="middle" font-size="12" font-weight="600" fill="currentColor">findSessionForAgent</text>
+<text x="440" y="150" text-anchor="middle" font-size="10" fill="#64748b">(ag, mg, NULL)</text>
+<text x="440" y="166" text-anchor="middle" font-size="10" fill="#64748b">thread 合并</text>
+<text x="440" y="178" text-anchor="middle" font-size="9" fill="#94a3b8">→ 每 mg 一个 session</text>
+<rect x="640" y="110" width="200" height="74" rx="6" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.2"/>
+<text x="740" y="132" text-anchor="middle" font-size="12" font-weight="600" fill="currentColor">findSessionForAgent</text>
+<text x="740" y="150" text-anchor="middle" font-size="10" fill="#64748b">(ag, mg, threadId)</text>
+<text x="740" y="166" text-anchor="middle" font-size="10" fill="#64748b">thread 分开</text>
+<text x="740" y="178" text-anchor="middle" font-size="9" fill="#94a3b8">→ 每 thread 一个</text>
+<line x1="140" y1="184" x2="140" y2="220" stroke="#94a3b8" stroke-width="1.2"/>
+<line x1="440" y1="184" x2="440" y2="220" stroke="#94a3b8" stroke-width="1.2"/>
+<line x1="740" y1="184" x2="740" y2="220" stroke="#94a3b8" stroke-width="1.2"/>
+<polygon points="140,220 100,250 140,280 180,250" fill="#fff" stroke="#94a3b8" stroke-width="1.2"/>
+<text x="140" y="254" text-anchor="middle" font-size="11" font-weight="600" fill="currentColor">hit?</text>
+<polygon points="440,220 400,250 440,280 480,250" fill="#fff" stroke="#94a3b8" stroke-width="1.2"/>
+<text x="440" y="254" text-anchor="middle" font-size="11" font-weight="600" fill="currentColor">hit?</text>
+<polygon points="740,220 700,250 740,280 780,250" fill="#fff" stroke="#94a3b8" stroke-width="1.2"/>
+<text x="740" y="254" text-anchor="middle" font-size="11" font-weight="600" fill="currentColor">hit?</text>
+<line x1="100" y1="250" x2="40" y2="310" stroke="#16a34a" stroke-width="1.2" marker-end="url(#ar43)"/>
+<line x1="180" y1="250" x2="240" y2="310" stroke="#dc2626" stroke-width="1.2" marker-end="url(#ar43)"/>
+<line x1="400" y1="250" x2="340" y2="310" stroke="#16a34a" stroke-width="1.2" marker-end="url(#ar43)"/>
+<line x1="480" y1="250" x2="540" y2="310" stroke="#dc2626" stroke-width="1.2" marker-end="url(#ar43)"/>
+<line x1="700" y1="250" x2="640" y2="310" stroke="#16a34a" stroke-width="1.2" marker-end="url(#ar43)"/>
+<line x1="780" y1="250" x2="840" y2="310" stroke="#dc2626" stroke-width="1.2" marker-end="url(#ar43)"/>
+<text x="85" y="288" text-anchor="middle" font-size="10" fill="#16a34a" font-weight="600">yes</text>
+<text x="200" y="288" text-anchor="middle" font-size="10" fill="#dc2626" font-weight="600">no</text>
+<text x="385" y="288" text-anchor="middle" font-size="10" fill="#16a34a" font-weight="600">yes</text>
+<text x="500" y="288" text-anchor="middle" font-size="10" fill="#dc2626" font-weight="600">no</text>
+<text x="685" y="288" text-anchor="middle" font-size="10" fill="#16a34a" font-weight="600">yes</text>
+<text x="800" y="288" text-anchor="middle" font-size="10" fill="#dc2626" font-weight="600">no</text>
+<rect x="160" y="320" width="280" height="50" rx="6" fill="#dcfce7" stroke="#16a34a" stroke-width="1.5"/>
+<text x="300" y="342" text-anchor="middle" font-size="12" font-weight="700" fill="currentColor">return existing session</text>
+<text x="300" y="358" text-anchor="middle" font-size="10" fill="#64748b">{ created: false }</text>
+<rect x="460" y="320" width="380" height="50" rx="6" fill="#fef3c7" stroke="#d97706" stroke-width="1.5"/>
+<text x="650" y="342" text-anchor="middle" font-size="12" font-weight="700" fill="currentColor">generateId + createSession + initSessionFolder</text>
+<text x="650" y="358" text-anchor="middle" font-size="10" fill="#64748b">mkdir + ensureSchema(inbound.db) + ensureSchema(outbound.db)</text>
+<line x1="40" y1="370" x2="160" y2="345" stroke="#16a34a" stroke-width="1.2" stroke-dasharray="3,2"/>
+<line x1="240" y1="370" x2="460" y2="345" stroke="#dc2626" stroke-width="1.2" stroke-dasharray="3,2"/>
+<line x1="340" y1="370" x2="300" y2="370" stroke="#16a34a" stroke-width="1.2"/>
+<line x1="540" y1="370" x2="500" y2="370" stroke="#dc2626" stroke-width="1.2"/>
+<line x1="640" y1="370" x2="440" y2="370" stroke="#16a34a" stroke-width="1.2" stroke-dasharray="3,2"/>
+<line x1="840" y1="370" x2="650" y2="370" stroke="#dc2626" stroke-width="1.2" stroke-dasharray="3,2"/>
+<text x="440" y="410" text-anchor="middle" font-size="11" fill="#64748b" font-style="italic">三条 lookup 路径不同；命中后续逻辑共用：要么复用，要么造新 session 目录</text>
+</svg>
+<span class="figure-caption">图 R4.3 ｜ resolveSession 三分支决策树。三种 session_mode 各自用不同 key 去找已有 session：agent-shared 只看 ag、shared 看 (ag, mg)、per-thread 看 (ag, mg, thread)。命中复用、未命中建新 session 目录。</span>
+
+<details>
+<summary>ASCII 原版</summary>
+
 ```
                     +-------------------+
                     | sessionMode = ?   |
@@ -437,6 +615,8 @@ if (adapterSupportsThreads && effectiveSessionMode !== 'agent-shared' && mg.is_g
                         如果命中： 返回 existing session
                         否则：    generateId() + createSession() + initSessionFolder()
 ```
+
+</details>
 
 `initSessionFolder()`（`session-manager.ts:136`）做三件事：
 

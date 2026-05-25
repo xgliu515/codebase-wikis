@@ -64,6 +64,44 @@ NanoClaw 的运行时由两类进程组成：
 
 NanoClaw 把状态切成三份 SQLite 文件，**每份只允许一个写者**：
 
+<svg viewBox="0 0 820 360" xmlns="http://www.w3.org/2000/svg" class="figure-svg" role="img" aria-label="Three DB layout with per-session inbound, outbound and heartbeat under v2-sessions">
+  <defs>
+    <marker id="ar-r31" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/></marker>
+  </defs>
+  <rect x="20" y="20" width="780" height="320" rx="8" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1"/>
+  <text x="410" y="42" text-anchor="middle" font-size="12" font-weight="700" fill="currentColor">data/</text>
+  <rect x="40" y="60" width="220" height="100" rx="6" fill="#ddd6fe" stroke="#7c3aed" stroke-width="1.5"/>
+  <text x="150" y="84" text-anchor="middle" font-size="12" font-weight="600" fill="currentColor">v2.db</text>
+  <text x="150" y="102" text-anchor="middle" font-size="10" fill="#64748b">CENTRAL · admin plane</text>
+  <text x="150" y="122" text-anchor="middle" font-size="10" fill="#0d9488">writer: host</text>
+  <text x="150" y="140" text-anchor="middle" font-size="10" fill="#0d9488">reader: host</text>
+  <rect x="290" y="60" width="490" height="262" rx="6" fill="#ffffff" stroke="#94a3b8" stroke-width="1"/>
+  <text x="305" y="80" font-size="11" font-weight="600" fill="currentColor">v2-sessions/&lt;agent_group_id&gt;/&lt;session_id&gt;/</text>
+  <rect x="310" y="96" width="220" height="62" rx="4" fill="#ddd6fe" stroke="#7c3aed" stroke-width="1.5"/>
+  <text x="420" y="116" text-anchor="middle" font-size="12" font-weight="600" fill="currentColor">inbound.db</text>
+  <text x="420" y="134" text-anchor="middle" font-size="10" fill="#0d9488">writer: host</text>
+  <text x="420" y="150" text-anchor="middle" font-size="10" fill="#64748b">reader: host + container (RO)</text>
+  <rect x="550" y="96" width="220" height="62" rx="4" fill="#ddd6fe" stroke="#7c3aed" stroke-width="1.5"/>
+  <text x="660" y="116" text-anchor="middle" font-size="12" font-weight="600" fill="currentColor">outbound.db</text>
+  <text x="660" y="134" text-anchor="middle" font-size="10" fill="#ea580c">writer: container</text>
+  <text x="660" y="150" text-anchor="middle" font-size="10" fill="#64748b">reader: container + host (RO)</text>
+  <rect x="310" y="172" width="460" height="42" rx="4" fill="#f0fdf4" stroke="#16a34a" stroke-width="1.2"/>
+  <text x="540" y="190" text-anchor="middle" font-size="11" font-weight="600" fill="currentColor">.heartbeat</text>
+  <text x="540" y="206" text-anchor="middle" font-size="10" fill="#64748b">mtime touched by container · no SQLite lock</text>
+  <rect x="310" y="226" width="220" height="42" rx="4" fill="#f1f5f9" stroke="#94a3b8" stroke-width="1"/>
+  <text x="420" y="244" text-anchor="middle" font-size="11" font-weight="600" fill="currentColor">inbox/&lt;msg_id&gt;/</text>
+  <text x="420" y="260" text-anchor="middle" font-size="10" fill="#64748b">user attachments</text>
+  <rect x="550" y="226" width="220" height="42" rx="4" fill="#f1f5f9" stroke="#94a3b8" stroke-width="1"/>
+  <text x="660" y="244" text-anchor="middle" font-size="11" font-weight="600" fill="currentColor">outbox/&lt;msg_id&gt;/</text>
+  <text x="660" y="260" text-anchor="middle" font-size="10" fill="#64748b">agent attachments</text>
+  <text x="305" y="294" font-size="10" fill="#94a3b8">.claude-shared/ — per-agent-group Claude SDK state</text>
+  <text x="305" y="312" font-size="10" fill="#94a3b8">agent-runner-src/ — per-group runtime overlay</text>
+</svg>
+<span class="figure-caption">图 R3.1 ｜ data/ 下三类 SQLite 角色与每 session 文件夹布局；每个 DB 文件恰好一个 writer</span>
+
+<details>
+<summary>ASCII 原版</summary>
+
 ```
 data/
   v2.db                                       <- CENTRAL
@@ -81,6 +119,8 @@ data/
         inbox/<message_id>/                   <- user attachments
         outbox/<message_id>/                  <- agent attachments
 ```
+
+</details>
 
 | DB | 路径 | 写者 | 读者 | 用途 |
 |----|------|------|------|------|
@@ -155,6 +195,79 @@ Host 独占，跑在 host 进程的 better-sqlite3 上（`src/db/connection.ts:1
 
 #### 3.4.1 entity 关系总览（central DB）
 
+<svg viewBox="0 0 860 520" xmlns="http://www.w3.org/2000/svg" class="figure-svg" role="img" aria-label="Central DB entity relationships across agent groups, messaging groups, sessions, users and approvals">
+  <defs>
+    <marker id="ar-r32" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/></marker>
+  </defs>
+  <rect x="40" y="30" width="180" height="80" rx="6" fill="#fed7aa" stroke="#ea580c" stroke-width="1.5"/>
+  <text x="130" y="50" text-anchor="middle" font-size="12" font-weight="700" fill="currentColor">agent_groups</text>
+  <text x="130" y="68" text-anchor="middle" font-size="10" fill="#64748b">id (PK)</text>
+  <text x="130" y="84" text-anchor="middle" font-size="10" fill="#64748b">folder UNIQUE</text>
+  <text x="130" y="100" text-anchor="middle" font-size="10" fill="#64748b">agent_provider</text>
+  <rect x="640" y="30" width="180" height="98" rx="6" fill="#bae6fd" stroke="#0ea5e9" stroke-width="1.5"/>
+  <text x="730" y="50" text-anchor="middle" font-size="12" font-weight="700" fill="currentColor">messaging_groups</text>
+  <text x="730" y="68" text-anchor="middle" font-size="10" fill="#64748b">id (PK)</text>
+  <text x="730" y="84" text-anchor="middle" font-size="10" fill="#64748b">channel_type · platform_id</text>
+  <text x="730" y="100" text-anchor="middle" font-size="10" fill="#64748b">unknown_sender_policy</text>
+  <text x="730" y="116" text-anchor="middle" font-size="10" fill="#64748b">denied_at?</text>
+  <rect x="340" y="180" width="180" height="100" rx="6" fill="#99f6e4" stroke="#0d9488" stroke-width="1.5"/>
+  <text x="430" y="200" text-anchor="middle" font-size="12" font-weight="700" fill="currentColor">sessions</text>
+  <text x="430" y="216" text-anchor="middle" font-size="10" fill="#64748b">id (PK)</text>
+  <text x="430" y="232" text-anchor="middle" font-size="10" fill="#64748b">agent_group_id (FK)</text>
+  <text x="430" y="248" text-anchor="middle" font-size="10" fill="#64748b">messaging_group_id? (FK)</text>
+  <text x="430" y="264" text-anchor="middle" font-size="10" fill="#64748b">thread_id? · container_status</text>
+  <rect x="600" y="180" width="220" height="116" rx="6" fill="#bae6fd" stroke="#0ea5e9" stroke-width="1.5"/>
+  <text x="710" y="200" text-anchor="middle" font-size="12" font-weight="700" fill="currentColor">messaging_group_agents</text>
+  <text x="710" y="216" text-anchor="middle" font-size="10" fill="#64748b">M:N wiring</text>
+  <text x="710" y="232" text-anchor="middle" font-size="10" fill="#64748b">messaging_group_id · agent_group_id</text>
+  <text x="710" y="248" text-anchor="middle" font-size="10" fill="#64748b">engage_mode · engage_pattern</text>
+  <text x="710" y="264" text-anchor="middle" font-size="10" fill="#64748b">sender_scope · session_mode</text>
+  <text x="710" y="280" text-anchor="middle" font-size="10" fill="#64748b">priority</text>
+  <rect x="40" y="180" width="200" height="80" rx="6" fill="#fed7aa" stroke="#ea580c" stroke-width="1.5"/>
+  <text x="140" y="200" text-anchor="middle" font-size="12" font-weight="700" fill="currentColor">agent_destinations</text>
+  <text x="140" y="216" text-anchor="middle" font-size="10" fill="#64748b">(agent_group_id, local_name) PK</text>
+  <text x="140" y="232" text-anchor="middle" font-size="10" fill="#64748b">target_type · target_id</text>
+  <text x="140" y="250" text-anchor="middle" font-size="10" fill="#dc2626">must mirror to session inbound</text>
+  <rect x="340" y="320" width="180" height="64" rx="6" fill="#99f6e4" stroke="#0d9488" stroke-width="1.5"/>
+  <text x="430" y="340" text-anchor="middle" font-size="12" font-weight="700" fill="currentColor">pending_questions</text>
+  <text x="430" y="356" text-anchor="middle" font-size="10" fill="#64748b">question_id (PK)</text>
+  <text x="430" y="372" text-anchor="middle" font-size="10" fill="#64748b">session_id · message_out_id</text>
+  <rect x="40" y="410" width="160" height="80" rx="6" fill="#ddd6fe" stroke="#7c3aed" stroke-width="1.5"/>
+  <text x="120" y="430" text-anchor="middle" font-size="12" font-weight="700" fill="currentColor">users</text>
+  <text x="120" y="446" text-anchor="middle" font-size="10" fill="#64748b">id (channel:handle)</text>
+  <text x="120" y="462" text-anchor="middle" font-size="10" fill="#64748b">kind · display_name</text>
+  <rect x="220" y="410" width="180" height="80" rx="6" fill="#ddd6fe" stroke="#7c3aed" stroke-width="1.5"/>
+  <text x="310" y="430" text-anchor="middle" font-size="12" font-weight="700" fill="currentColor">user_roles</text>
+  <text x="310" y="446" text-anchor="middle" font-size="10" fill="#64748b">(user, role, ag_id?)</text>
+  <text x="310" y="462" text-anchor="middle" font-size="10" fill="#64748b">owner · admin</text>
+  <rect x="420" y="410" width="180" height="80" rx="6" fill="#ddd6fe" stroke="#7c3aed" stroke-width="1.5"/>
+  <text x="510" y="430" text-anchor="middle" font-size="12" font-weight="700" fill="currentColor">agent_group_members</text>
+  <text x="510" y="446" text-anchor="middle" font-size="10" fill="#64748b">(user, agent_group)</text>
+  <text x="510" y="462" text-anchor="middle" font-size="10" fill="#64748b">non-privileged known</text>
+  <rect x="620" y="410" width="200" height="80" rx="6" fill="#ddd6fe" stroke="#7c3aed" stroke-width="1.5"/>
+  <text x="720" y="430" text-anchor="middle" font-size="12" font-weight="700" fill="currentColor">user_dms · approvals</text>
+  <text x="720" y="446" text-anchor="middle" font-size="10" fill="#64748b">user_dms (user, channel)</text>
+  <text x="720" y="462" text-anchor="middle" font-size="10" fill="#64748b">pending_sender_approvals</text>
+  <text x="720" y="478" text-anchor="middle" font-size="10" fill="#64748b">pending_channel_approvals</text>
+  <line x1="130" y1="110" x2="370" y2="178" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar-r32)"/>
+  <text x="220" y="138" font-size="9" fill="#64748b">1:N</text>
+  <line x1="730" y1="128" x2="490" y2="178" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar-r32)"/>
+  <text x="615" y="148" font-size="9" fill="#64748b">N:1 (optional)</text>
+  <line x1="730" y1="128" x2="710" y2="178" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar-r32)"/>
+  <line x1="220" y1="110" x2="640" y2="178" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar-r32)"/>
+  <line x1="240" y1="218" x2="338" y2="218" stroke="#dc2626" stroke-width="1.2" stroke-dasharray="3,2" marker-end="url(#ar-r32)"/>
+  <text x="289" y="210" text-anchor="middle" font-size="9" fill="#dc2626">projection</text>
+  <line x1="430" y1="280" x2="430" y2="318" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar-r32)"/>
+  <line x1="200" y1="450" x2="218" y2="450" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar-r32)"/>
+  <line x1="400" y1="450" x2="418" y2="450" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar-r32)"/>
+  <line x1="600" y1="450" x2="618" y2="450" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar-r32)"/>
+  <text x="430" y="514" text-anchor="middle" font-size="10" fill="#94a3b8">橙 = agent · 蓝 = channel · 青 = session · 紫 = identity / approval</text>
+</svg>
+<span class="figure-caption">图 R3.2 ｜ Central DB 主要实体关系：agent_groups × messaging_groups 通过 wiring 表 fan-out 出 sessions；identity 层独立挂在底部</span>
+
+<details>
+<summary>ASCII 原版</summary>
+
 ```
                 +----------------+        +-------------------+
                 | agent_groups   |        | messaging_groups  |
@@ -202,6 +315,8 @@ Host 独占，跑在 host 进程的 better-sqlite3 上（`src/db/connection.ts:1
                 |  channel)|
                 +----------+
 ```
+
+</details>
 
 #### 3.4.2 `agent_destinations`：投影到 session inbound 的 ACL
 
@@ -362,6 +477,41 @@ CREATE TABLE IF NOT EXISTS container_state (
 
 `messages_in.seq` 和 `messages_out.seq` 都是 SQLite `INTEGER UNIQUE`，但 **它们的命名空间被故意拆成"偶数全归 host"和"奇数全归 container"**：
 
+<svg viewBox="0 0 760 280" xmlns="http://www.w3.org/2000/svg" class="figure-svg" role="img" aria-label="Seq parity: host writes even seq to inbound, container writes odd seq to outbound, agent reads parity to dispatch by table">
+  <defs>
+    <marker id="ar-r33" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/></marker>
+  </defs>
+  <rect x="40" y="30" width="280" height="220" rx="8" fill="#f0fdfa" stroke="#0d9488" stroke-width="1.5"/>
+  <text x="180" y="54" text-anchor="middle" font-size="13" font-weight="700" fill="#0d9488">inbound.db · messages_in</text>
+  <text x="180" y="72" text-anchor="middle" font-size="10" fill="#64748b">writer: host · EVEN seq</text>
+  <rect x="80" y="90" width="200" height="30" rx="3" fill="#ffffff" stroke="#0d9488" stroke-width="1"/>
+  <text x="180" y="110" text-anchor="middle" font-size="11" fill="currentColor">seq = 2 · 'user hello'</text>
+  <rect x="80" y="128" width="200" height="30" rx="3" fill="#ffffff" stroke="#0d9488" stroke-width="1"/>
+  <text x="180" y="148" text-anchor="middle" font-size="11" fill="currentColor">seq = 4 · 'reaction'</text>
+  <rect x="80" y="166" width="200" height="30" rx="3" fill="#ffffff" stroke="#0d9488" stroke-width="1"/>
+  <text x="180" y="186" text-anchor="middle" font-size="11" fill="currentColor">seq = 6 · 'edit'</text>
+  <rect x="80" y="204" width="200" height="30" rx="3" fill="#ffffff" stroke="#0d9488" stroke-width="1"/>
+  <text x="180" y="224" text-anchor="middle" font-size="11" fill="currentColor">seq = 8 · ...</text>
+  <rect x="440" y="30" width="280" height="220" rx="8" fill="#fff7ed" stroke="#ea580c" stroke-width="1.5"/>
+  <text x="580" y="54" text-anchor="middle" font-size="13" font-weight="700" fill="#ea580c">outbound.db · messages_out</text>
+  <text x="580" y="72" text-anchor="middle" font-size="10" fill="#64748b">writer: container · ODD seq</text>
+  <rect x="480" y="90" width="200" height="30" rx="3" fill="#ffffff" stroke="#ea580c" stroke-width="1"/>
+  <text x="580" y="110" text-anchor="middle" font-size="11" fill="currentColor">seq = 1 · 'agent reply'</text>
+  <rect x="480" y="128" width="200" height="30" rx="3" fill="#ffffff" stroke="#ea580c" stroke-width="1"/>
+  <text x="580" y="148" text-anchor="middle" font-size="11" fill="currentColor">seq = 3 · 'send_file'</text>
+  <rect x="480" y="166" width="200" height="30" rx="3" fill="#ffffff" stroke="#ea580c" stroke-width="1"/>
+  <text x="580" y="186" text-anchor="middle" font-size="11" fill="currentColor">seq = 5 · 'ask_question'</text>
+  <rect x="480" y="204" width="200" height="30" rx="3" fill="#ffffff" stroke="#ea580c" stroke-width="1"/>
+  <text x="580" y="224" text-anchor="middle" font-size="11" fill="currentColor">seq = 7 · ...</text>
+  <text x="380" y="268" text-anchor="middle" font-size="10" fill="#64748b">agent: edit_message(seq=5) → odd → messages_out · add_reaction(seq=6) → even → messages_in</text>
+  <line x1="320" y1="105" x2="478" y2="143" stroke="#94a3b8" stroke-width="1" stroke-dasharray="3,2"/>
+  <line x1="478" y1="105" x2="320" y2="143" stroke="#94a3b8" stroke-width="1" stroke-dasharray="3,2"/>
+</svg>
+<span class="figure-caption">图 R3.3 ｜ Seq 奇偶分号段：host 写偶到 inbound，container 写奇到 outbound — agent 凭奇偶判表，无须 join</span>
+
+<details>
+<summary>ASCII 原版</summary>
+
 ```
 inbound  | outbound
 ---------|-----------
@@ -371,6 +521,8 @@ seq=6    | seq=5
 seq=8    | seq=7
 ...      | ...
 ```
+
+</details>
 
 #### Host 侧（`src/db/session-db.ts:75-92`）
 
@@ -471,6 +623,70 @@ DELETE 模式下，commit 包含 journal 文件 unlink。VirtioFS 不保证 unli
 
 #### 为什么不能用 WAL（再说一遍）
 
+<svg viewBox="0 0 880 420" xmlns="http://www.w3.org/2000/svg" class="figure-svg" role="img" aria-label="WAL versus DELETE journal mode across host-guest mount boundary: why DELETE is the only safe choice">
+  <defs>
+    <marker id="ar-r34" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/></marker>
+    <pattern id="hatch-r34" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="6" stroke="#fca5a5" stroke-width="2"/></pattern>
+  </defs>
+  <rect x="20" y="20" width="420" height="380" rx="8" fill="#fef2f2" stroke="#dc2626" stroke-width="1.5"/>
+  <text x="230" y="44" text-anchor="middle" font-size="13" font-weight="700" fill="#dc2626">WAL mode · broken across mount</text>
+  <text x="40" y="74" font-size="11" font-weight="600" fill="#0d9488">host writer</text>
+  <rect x="40" y="84" width="170" height="42" rx="4" fill="#ffffff" stroke="#94a3b8" stroke-width="1"/>
+  <text x="125" y="108" text-anchor="middle" font-size="11" fill="currentColor">main.db</text>
+  <rect x="40" y="132" width="170" height="42" rx="4" fill="#ffffff" stroke="#0d9488" stroke-width="1"/>
+  <text x="125" y="150" text-anchor="middle" font-size="11" fill="currentColor">-wal</text>
+  <text x="125" y="166" text-anchor="middle" font-size="9" fill="#64748b">new commits land here</text>
+  <rect x="40" y="180" width="170" height="42" rx="4" fill="#ffffff" stroke="#0d9488" stroke-width="1"/>
+  <text x="125" y="198" text-anchor="middle" font-size="11" fill="currentColor">-shm (mmap)</text>
+  <text x="125" y="214" text-anchor="middle" font-size="9" fill="#64748b">page index</text>
+  <text x="250" y="74" font-size="11" font-weight="600" fill="#ea580c">container reader</text>
+  <rect x="250" y="84" width="170" height="42" rx="4" fill="#ffffff" stroke="#94a3b8" stroke-width="1"/>
+  <text x="335" y="108" text-anchor="middle" font-size="11" fill="currentColor">main.db</text>
+  <rect x="250" y="132" width="170" height="42" rx="4" fill="url(#hatch-r34)" stroke="#dc2626" stroke-width="1.5"/>
+  <text x="335" y="150" text-anchor="middle" font-size="11" fill="currentColor">-wal</text>
+  <text x="335" y="166" text-anchor="middle" font-size="9" fill="#dc2626">mmap stuck on old snapshot</text>
+  <rect x="250" y="180" width="170" height="42" rx="4" fill="url(#hatch-r34)" stroke="#dc2626" stroke-width="1.5"/>
+  <text x="335" y="198" text-anchor="middle" font-size="11" fill="currentColor">-shm (mmap)</text>
+  <text x="335" y="214" text-anchor="middle" font-size="9" fill="#dc2626">VirtioFS won't propagate</text>
+  <line x1="210" y1="153" x2="248" y2="153" stroke="#dc2626" stroke-width="1.5" stroke-dasharray="3,2" marker-end="url(#ar-r34)"/>
+  <line x1="210" y1="201" x2="248" y2="201" stroke="#dc2626" stroke-width="1.5" stroke-dasharray="3,2" marker-end="url(#ar-r34)"/>
+  <rect x="40" y="248" width="380" height="140" rx="6" fill="#ffffff" stroke="#dc2626" stroke-width="1"/>
+  <text x="230" y="270" text-anchor="middle" font-size="11" font-weight="600" fill="#dc2626">consequence</text>
+  <text x="55" y="294" font-size="10" fill="currentColor">· container silently misses every new host message</text>
+  <text x="55" y="314" font-size="10" fill="currentColor">· reader never sees committed transactions</text>
+  <text x="55" y="334" font-size="10" fill="currentColor">· concurrent journal-unlink corrupts the DB</text>
+  <text x="55" y="354" font-size="10" fill="currentColor">· mmap coherency host↔guest is not guaranteed</text>
+  <text x="55" y="374" font-size="10" fill="currentColor">  by VirtioFS / 9p / NFS-like bind mounts</text>
+  <rect x="460" y="20" width="400" height="380" rx="8" fill="#f0fdf4" stroke="#16a34a" stroke-width="1.5"/>
+  <text x="660" y="44" text-anchor="middle" font-size="13" font-weight="700" fill="#16a34a">DELETE mode · cross-mount safe</text>
+  <text x="480" y="74" font-size="11" font-weight="600" fill="#0d9488">host writer</text>
+  <rect x="480" y="84" width="170" height="42" rx="4" fill="#ffffff" stroke="#0d9488" stroke-width="1.5"/>
+  <text x="565" y="102" text-anchor="middle" font-size="11" fill="currentColor">main.db</text>
+  <text x="565" y="118" text-anchor="middle" font-size="9" fill="#64748b">commit writes pages directly</text>
+  <rect x="480" y="132" width="170" height="42" rx="4" fill="#ffffff" stroke="#94a3b8" stroke-width="1" stroke-dasharray="3,2"/>
+  <text x="565" y="150" text-anchor="middle" font-size="11" fill="currentColor">-journal</text>
+  <text x="565" y="166" text-anchor="middle" font-size="9" fill="#64748b">unlinked on commit</text>
+  <text x="690" y="74" font-size="11" font-weight="600" fill="#ea580c">container reader</text>
+  <rect x="690" y="84" width="150" height="42" rx="4" fill="#ffffff" stroke="#ea580c" stroke-width="1.5"/>
+  <text x="765" y="102" text-anchor="middle" font-size="11" fill="currentColor">main.db</text>
+  <text x="765" y="118" text-anchor="middle" font-size="9" fill="#64748b">re-open per query · no mmap</text>
+  <line x1="650" y1="105" x2="688" y2="105" stroke="#16a34a" stroke-width="1.5" marker-end="url(#ar-r34)"/>
+  <text x="669" y="98" text-anchor="middle" font-size="9" fill="#16a34a">fresh read</text>
+  <rect x="480" y="200" width="360" height="180" rx="6" fill="#ffffff" stroke="#16a34a" stroke-width="1"/>
+  <text x="660" y="222" text-anchor="middle" font-size="11" font-weight="600" fill="#16a34a">three load-bearing invariants</text>
+  <text x="495" y="246" font-size="10" fill="currentColor">1. journal_mode = DELETE</text>
+  <text x="510" y="262" font-size="9" fill="#64748b">no mmap dependence for the reader</text>
+  <text x="495" y="284" font-size="10" fill="currentColor">2. host open-write-close per op</text>
+  <text x="510" y="300" font-size="9" fill="#64748b">close flushes pages so guest can see them</text>
+  <text x="495" y="322" font-size="10" fill="currentColor">3. one writer per file</text>
+  <text x="510" y="338" font-size="9" fill="#64748b">DELETE journal-unlink isn't atomic cross-mount</text>
+  <text x="495" y="362" font-size="10" fill="currentColor">+ container reader: PRAGMA mmap_size = 0</text>
+</svg>
+<span class="figure-caption">图 R3.4 ｜ WAL vs DELETE 跨 mount 对照：WAL 的 -shm mmap 不传 host→guest，DELETE 才能保证 container 看到最新提交</span>
+
+<details>
+<summary>ASCII 原版</summary>
+
 ```
 WAL writer 视角                  WAL reader 视角（container）
   +-----------+                    +-----------+
@@ -488,6 +704,8 @@ DELETE writer 视角               DELETE reader 视角
   | -journal  |  <- commit 时 unlink
   +-----------+
 ```
+
+</details>
 
 WAL 在共享文件系统、单机多进程里很优秀；但在 host↔guest 之间，"共享 mmap 段"这个前提不成立，所以只能 DELETE。
 

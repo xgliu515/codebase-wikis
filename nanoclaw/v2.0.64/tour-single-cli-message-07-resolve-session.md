@@ -134,6 +134,48 @@ export function initSessionFolder(agentGroupId: string, sessionId: string): void
 
 对我们这条 CLI `ping`：CLI adapter 在 host 启动时自动创建了 mg `mg-cli-default`，但 `sessions` 表里此时**没有**对应 `ag-default + mg-cli-default + null` 的行。所以走 `findSessionForAgent` → 空 → INSERT 一条 `id=sess-1715-...` 的新行 → `mkdir -p data/v2-sessions/ag-default/sess-1715-.../`、`outbox/` → 建 `inbound.db` 和 `outbound.db` 两个空 schema 文件 → 返回 `{ session, created: true }`。
 
+<svg viewBox="0 0 760 380" xmlns="http://www.w3.org/2000/svg" class="figure-svg" role="img" aria-label="resolveSession dispatching three session_mode branches: agent-shared, shared/per-thread, and miss path that creates Central DB row plus session folder">
+  <defs>
+    <marker id="ar71" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/></marker>
+  </defs>
+  <rect x="290" y="20" width="180" height="48" rx="8" fill="#0d9488" opacity="0.18" stroke="#0d9488" stroke-width="1.5"/>
+  <text x="380" y="40" text-anchor="middle" font-size="13" font-weight="700" fill="currentColor">resolveSession()</text>
+  <text x="380" y="56" text-anchor="middle" font-size="10" fill="#94a3b8">session-manager.ts:92</text>
+  <line x1="380" y1="68" x2="130" y2="104" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar71)"/>
+  <line x1="380" y1="68" x2="380" y2="104" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar71)"/>
+  <line x1="380" y1="68" x2="630" y2="104" stroke="#ea580c" stroke-width="1.5" marker-end="url(#ar71)"/>
+  <rect x="30" y="110" width="200" height="80" rx="6" fill="#ddd6fe" stroke="#7c3aed" stroke-width="1.2"/>
+  <text x="130" y="130" text-anchor="middle" font-size="12" font-weight="700" fill="currentColor">agent-shared</text>
+  <text x="130" y="148" text-anchor="middle" font-size="10" fill="#64748b">findSessionByAgentGroup(ag)</text>
+  <text x="130" y="164" text-anchor="middle" font-size="10" fill="#64748b">忽略 mg / thread</text>
+  <text x="130" y="180" text-anchor="middle" font-size="10" fill="#64748b">统一收件箱型 agent</text>
+  <rect x="280" y="110" width="200" height="80" rx="6" fill="#99f6e4" stroke="#0d9488" stroke-width="1.2"/>
+  <text x="380" y="130" text-anchor="middle" font-size="12" font-weight="700" fill="currentColor">shared / per-thread</text>
+  <text x="380" y="148" text-anchor="middle" font-size="10" fill="#64748b">findSessionForAgent(ag, mg, t)</text>
+  <text x="380" y="164" text-anchor="middle" font-size="10" fill="#64748b">shared: t=null</text>
+  <text x="380" y="180" text-anchor="middle" font-size="10" fill="#64748b">per-thread: t=threadId</text>
+  <rect x="530" y="110" width="200" height="80" rx="6" fill="#fed7aa" stroke="#ea580c" stroke-width="1.5"/>
+  <text x="630" y="130" text-anchor="middle" font-size="12" font-weight="700" fill="currentColor">CLI ping (shared)</text>
+  <text x="630" y="148" text-anchor="middle" font-size="10" fill="#64748b">supportsThreads=false</text>
+  <text x="630" y="164" text-anchor="middle" font-size="10" fill="#64748b">is_group=0, t=null</text>
+  <text x="630" y="180" text-anchor="middle" font-size="10" fill="#64748b">首次 → miss</text>
+  <line x1="130" y1="190" x2="380" y2="220" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar71)"/>
+  <line x1="380" y1="190" x2="380" y2="220" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar71)"/>
+  <line x1="630" y1="190" x2="380" y2="220" stroke="#ea580c" stroke-width="1.5" marker-end="url(#ar71)"/>
+  <rect x="220" y="228" width="320" height="32" rx="6" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1"/>
+  <text x="380" y="248" text-anchor="middle" font-size="11" font-weight="600" fill="currentColor">hit → return { session, created:false } ；miss ↓</text>
+  <line x1="380" y1="260" x2="380" y2="288" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar71)"/>
+  <rect x="80" y="294" width="600" height="72" rx="8" fill="#f0fdf4" stroke="#16a34a" stroke-width="1.4"/>
+  <text x="380" y="314" text-anchor="middle" font-size="12" font-weight="700" fill="currentColor">miss 路径（CLI 第一条 ping）</text>
+  <text x="380" y="332" text-anchor="middle" font-size="10" fill="#64748b">generateId() → INSERT sessions → mkdir sessionDir + outbox/</text>
+  <text x="380" y="348" text-anchor="middle" font-size="10" fill="#64748b">ensureSchema(inbound.db) + ensureSchema(outbound.db) — journal_mode=DELETE</text>
+  <text x="380" y="362" text-anchor="middle" font-size="10" fill="#94a3b8">return { session, created: true }</text>
+</svg>
+<span class="figure-caption">图 T1.5 ｜ resolveSession 把 session_mode 三档分流到两条 lookup（agent-shared / for-agent），都 miss 时统一进 miss 路径：INSERT + mkdir + 两份 schema。CLI ping 首次走最右下。</span>
+
+<details>
+<summary>ASCII 原版</summary>
+
 ```
 resolveSession()
        │
@@ -149,6 +191,8 @@ resolveSession()
                  → ensureSchema(outbound.db, 'outbound')
                  → return { session, created: true }
 ```
+
+</details>
 
 注意整个函数没有 `try/catch`：`mkdirSync` / `ensureSchema` / `createSession` 一旦 throw（磁盘满、Central DB 锁住），异常会一路冒到 router → CLI adapter → CLI client，那边会显示 stack 给操作者。这是有意为之——session 建不出来就不能继续，container 也别 spawn，让人去修磁盘。
 

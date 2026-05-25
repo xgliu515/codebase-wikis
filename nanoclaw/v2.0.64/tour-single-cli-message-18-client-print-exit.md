@@ -55,6 +55,67 @@
 
 ## 5. nanoclaw 的做法：line buffer + first-reply latch + silence timer + hard timer
 
+<svg viewBox="0 0 820 340" xmlns="http://www.w3.org/2000/svg" class="figure-svg" role="img" aria-label="Client lifecycle: 120s hard timer until first reply, then 2s silence timer reset per reply, exit 0/3">
+  <defs>
+    <marker id="ce-ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/></marker>
+  </defs>
+  <text x="410" y="20" font-size="13" font-weight="700" fill="currentColor" text-anchor="middle">chat.ts client — 120s hardTimer until firstReplySeen, then 2s silenceTimer per reply</text>
+  <text x="60" y="50" font-size="10" fill="#94a3b8">t=</text>
+  <line x1="80" y1="46" x2="780" y2="46" stroke="#cbd5e1"/>
+  <text x="100" y="38" font-size="9" fill="#64748b">0s</text>
+  <text x="240" y="38" font-size="9" fill="#64748b">~3s</text>
+  <text x="380" y="38" font-size="9" fill="#64748b">~3.5s</text>
+  <text x="520" y="38" font-size="9" fill="#64748b">~5.5s</text>
+  <text x="660" y="38" font-size="9" fill="#64748b">→ exit 0</text>
+  <rect x="20" y="62" width="780" height="86" rx="6" fill="#fef2f2" stroke="#dc2626" stroke-width="1.2"/>
+  <text x="30" y="80" font-size="11" font-weight="700" fill="#9a3412">Phase 1 · hardTimer = 120s (firstReplySeen = false)</text>
+  <line x1="100" y1="118" x2="380" y2="118" stroke="#dc2626" stroke-width="3"/>
+  <circle cx="100" cy="118" r="6" fill="#dc2626"/>
+  <text x="100" y="138" font-size="9" fill="currentColor" text-anchor="middle">connect</text>
+  <text x="100" y="92" font-size="9" fill="#94a3b8" text-anchor="middle">setTimeout</text>
+  <text x="100" y="104" font-size="9" fill="#94a3b8" text-anchor="middle">120s</text>
+  <text x="240" y="100" font-size="9" fill="#dc2626" text-anchor="middle">if no reply by 120s → exit 3 (timeout)</text>
+  <circle cx="380" cy="118" r="10" fill="#16a34a"/>
+  <text x="380" y="138" font-size="10" font-weight="700" fill="#16a34a" text-anchor="middle">first 'pong'</text>
+  <text x="380" y="92" font-size="9" fill="#16a34a" text-anchor="middle" font-weight="600">clearTimeout</text>
+  <text x="380" y="104" font-size="9" fill="#16a34a" text-anchor="middle" font-weight="600">latch flips</text>
+  <rect x="20" y="160" width="780" height="120" rx="6" fill="#ecfdf5" stroke="#0d9488" stroke-width="1.2"/>
+  <text x="30" y="178" font-size="11" font-weight="700" fill="#0f766e">Phase 2 · silenceTimer = 2s (reset on every reply)</text>
+  <line x1="380" y1="218" x2="660" y2="218" stroke="#0d9488" stroke-width="3"/>
+  <circle cx="380" cy="218" r="6" fill="#0d9488"/>
+  <text x="380" y="238" font-size="9" fill="currentColor" text-anchor="middle">stdout.write</text>
+  <circle cx="450" cy="218" r="5" fill="#0d9488"/>
+  <text x="450" y="238" font-size="9" fill="#94a3b8" text-anchor="middle">reply 2 (resets)</text>
+  <circle cx="520" cy="218" r="5" fill="#0d9488"/>
+  <text x="520" y="238" font-size="9" fill="#94a3b8" text-anchor="middle">reply 3 (resets)</text>
+  <line x1="520" y1="218" x2="660" y2="218" stroke="#0d9488" stroke-width="3" stroke-dasharray="3,2"/>
+  <text x="590" y="208" font-size="9" fill="#0d9488" text-anchor="middle">2s silence</text>
+  <circle cx="660" cy="218" r="10" fill="#7c3aed"/>
+  <text x="660" y="238" font-size="9" fill="#7c3aed" text-anchor="middle" font-weight="600">socket.end() + exit 0</text>
+  <text x="410" y="262" font-size="10" fill="#64748b" text-anchor="middle">why 2s? covers multi-message gaps without making shell wait too long</text>
+  <text x="410" y="274" font-size="10" fill="#dc2626" text-anchor="middle">naive "server.end() on done" can't work — agent has no "turn end" signal</text>
+  <rect x="20" y="292" width="780" height="36" rx="4" fill="#fef3c7" stroke="#ea580c" stroke-width="1.2"/>
+  <text x="410" y="308" font-size="11" font-weight="700" fill="currentColor" text-anchor="middle">exit codes: 0 ok · 1 usage · 2 daemon down (ENOENT/ECONNREFUSED) · 3 timeout</text>
+  <text x="410" y="322" font-size="10" fill="#64748b" text-anchor="middle">on socket.close: exit(firstReplySeen ? 0 : 3) — server-initiated close also clean</text>
+</svg>
+<span class="figure-caption">图 T1.28 ｜ chat.ts 客户端两段超时模型：Phase 1（红）firstReplySeen 之前用 120s 硬超时防 agent 死透；Phase 2（青）每收一条 reply 重置 2s silence timer，最后一条之后 2s 静默触发干净退出。</span>
+
+<details>
+<summary>ASCII 原版</summary>
+
+```
+Phase 1 (firstReplySeen=false):     Phase 2 (firstReplySeen=true):
+  hardTimer = 120s                     silenceTimer = 2s (reset per reply)
+
+t=0s ────────────────────► 3s        3s ── 3.5s ── 5.5s ── 2s silence ── exit 0
+     connect ... waiting              'pong' reply2 reply3
+     (if 120s no reply → exit 3)      clearHard  reset  reset  silence trips
+
+exit codes:  0 ok | 1 usage | 2 daemon down | 3 timeout
+```
+
+</details>
+
 整段 client 收数据逻辑就 `scripts/chat.ts:69-92`：
 
 ```ts
@@ -162,6 +223,107 @@ socket.on('close', () => {
 2. **firstReplySeen latch 双段超时模型**：见到第一条 reply 之前用 120s 硬超时防 agent 死透；之后切换到 2s silence timer 防 hang。
 3. **退出码语义化**：0 / 1 / 2 / 3 对应成功 / usage / daemon down / timeout，让 shell 脚本可判断。
 4. **wire format 的 forward compatibility 来自 client 的"只认 `msg.text` 字段、其他全 ignore"**——server 加新字段时老 client 不会爆。
+
+<svg viewBox="0 0 880 520" xmlns="http://www.w3.org/2000/svg" class="figure-svg" role="img" aria-label="Full 18-step closure: client to host to inbound DB to container to SDK to outbound DB to delivery and back">
+  <defs>
+    <marker id="cl-ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/></marker>
+    <marker id="cl-arO" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#ea580c"/></marker>
+    <marker id="cl-arP" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#7c3aed"/></marker>
+  </defs>
+  <text x="440" y="22" font-size="14" font-weight="700" fill="currentColor" text-anchor="middle">Full 18-step closure: 2 processes · 3 SQLite files · 1 Unix socket · 1 container · 1 Anthropic stream</text>
+  <rect x="20" y="40" width="180" height="460" rx="6" fill="#0ea5e9" opacity="0.08" stroke="#0ea5e9" stroke-width="1.2"/>
+  <text x="110" y="58" font-size="11" font-weight="700" fill="#0369a1" text-anchor="middle">CLI client</text>
+  <text x="110" y="72" font-size="10" fill="#64748b" text-anchor="middle">(scripts/chat.ts)</text>
+  <rect x="220" y="40" width="220" height="460" rx="6" fill="#0d9488" opacity="0.08" stroke="#0d9488" stroke-width="1.2"/>
+  <text x="330" y="58" font-size="11" font-weight="700" fill="#0f766e" text-anchor="middle">Host (Node)</text>
+  <text x="330" y="72" font-size="10" fill="#64748b" text-anchor="middle">adapter / router / sessions / delivery</text>
+  <rect x="460" y="40" width="180" height="460" rx="6" fill="#7c3aed" opacity="0.08" stroke="#7c3aed" stroke-width="1.2"/>
+  <text x="550" y="58" font-size="11" font-weight="700" fill="#5b21b6" text-anchor="middle">SQLite (the wire)</text>
+  <text x="550" y="72" font-size="10" fill="#64748b" text-anchor="middle">v2.db · inbound.db · outbound.db</text>
+  <rect x="660" y="40" width="200" height="460" rx="6" fill="#ea580c" opacity="0.08" stroke="#ea580c" stroke-width="1.2"/>
+  <text x="760" y="58" font-size="11" font-weight="700" fill="#9a3412" text-anchor="middle">Container (Bun)</text>
+  <text x="760" y="72" font-size="10" fill="#64748b" text-anchor="middle">poll-loop · formatter · provider · SDK</text>
+  <rect x="32" y="88" width="156" height="34" rx="4" fill="#ffffff" stroke="#0ea5e9"/>
+  <text x="110" y="103" font-size="10" font-weight="700" fill="currentColor" text-anchor="middle">01 chat.ts connect</text>
+  <text x="110" y="115" font-size="9" fill="#64748b" text-anchor="middle">net.connect /tmp/.../cli.sock</text>
+  <rect x="232" y="130" width="196" height="34" rx="4" fill="#ffffff" stroke="#0d9488"/>
+  <text x="330" y="145" font-size="10" font-weight="700" fill="currentColor" text-anchor="middle">02 CLI adapter accept</text>
+  <text x="330" y="157" font-size="9" fill="#64748b" text-anchor="middle">claimChatSlot · '{"text":"ping"}'</text>
+  <rect x="232" y="170" width="196" height="34" rx="4" fill="#ffffff" stroke="#0d9488"/>
+  <text x="330" y="185" font-size="10" font-weight="700" fill="currentColor" text-anchor="middle">03-07 router · session</text>
+  <text x="330" y="197" font-size="9" fill="#64748b" text-anchor="middle">resolve mg · ensureContainer</text>
+  <rect x="472" y="210" width="156" height="34" rx="4" fill="#ffffff" stroke="#7c3aed"/>
+  <text x="550" y="225" font-size="10" font-weight="700" fill="currentColor" text-anchor="middle">08 INSERT inbound.db</text>
+  <text x="550" y="237" font-size="9" fill="#64748b" text-anchor="middle">messages_in seq=2 (even)</text>
+  <rect x="232" y="250" width="196" height="34" rx="4" fill="#ffffff" stroke="#0d9488"/>
+  <text x="330" y="265" font-size="10" font-weight="700" fill="currentColor" text-anchor="middle">09 container-runner</text>
+  <text x="330" y="277" font-size="9" fill="#64748b" text-anchor="middle">docker run + spawn blob (fire-forget)</text>
+  <rect x="672" y="290" width="180" height="34" rx="4" fill="#ffffff" stroke="#ea580c"/>
+  <text x="762" y="305" font-size="10" font-weight="700" fill="currentColor" text-anchor="middle">10-11 boot + poll-loop</text>
+  <text x="762" y="317" font-size="9" fill="#64748b" text-anchor="middle">loadConfig · markProcessing</text>
+  <rect x="672" y="330" width="180" height="34" rx="4" fill="#ffffff" stroke="#ea580c"/>
+  <text x="762" y="345" font-size="10" font-weight="700" fill="currentColor" text-anchor="middle">12-13 formatter + SDK</text>
+  <text x="762" y="357" font-size="9" fill="#64748b" text-anchor="middle">XML prompt + resume:continuation</text>
+  <rect x="672" y="370" width="180" height="34" rx="4" fill="#ffffff" stroke="#ea580c"/>
+  <text x="762" y="385" font-size="10" font-weight="700" fill="currentColor" text-anchor="middle">14 dual-track (await+push)</text>
+  <text x="762" y="397" font-size="9" fill="#64748b" text-anchor="middle">heartbeat per event</text>
+  <rect x="472" y="410" width="156" height="34" rx="4" fill="#ffffff" stroke="#7c3aed"/>
+  <text x="550" y="425" font-size="10" font-weight="700" fill="currentColor" text-anchor="middle">15 INSERT outbound.db</text>
+  <text x="550" y="437" font-size="9" fill="#64748b" text-anchor="middle">messages_out seq=3 (odd)</text>
+  <rect x="232" y="450" width="196" height="34" rx="4" fill="#ffffff" stroke="#0d9488"/>
+  <text x="330" y="465" font-size="10" font-weight="700" fill="currentColor" text-anchor="middle">16-17 delivery + adapter</text>
+  <text x="330" y="477" font-size="9" fill="#64748b" text-anchor="middle">pollActive 1s · client.write +\n</text>
+  <rect x="32" y="450" width="156" height="34" rx="4" fill="#ffffff" stroke="#0ea5e9" stroke-width="1.5"/>
+  <text x="110" y="465" font-size="10" font-weight="700" fill="currentColor" text-anchor="middle">18 print + exit 0</text>
+  <text x="110" y="477" font-size="9" fill="#64748b" text-anchor="middle">silence 2s · socket.end()</text>
+  <line x1="188" y1="105" x2="230" y2="140" stroke="#0d9488" stroke-width="1.2" marker-end="url(#cl-ar)"/>
+  <line x1="330" y1="164" x2="330" y2="168" stroke="#0d9488" stroke-width="1.2" marker-end="url(#cl-ar)"/>
+  <line x1="428" y1="187" x2="470" y2="218" stroke="#7c3aed" stroke-width="1.2" marker-end="url(#cl-arP)"/>
+  <line x1="470" y1="227" x2="430" y2="262" stroke="#0d9488" stroke-width="1.2" marker-end="url(#cl-ar)"/>
+  <line x1="428" y1="267" x2="670" y2="300" stroke="#ea580c" stroke-width="1.2" marker-end="url(#cl-arO)"/>
+  <text x="546" y="282" font-size="9" fill="#ea580c" font-style="italic">spawn (one-shot)</text>
+  <line x1="672" y1="307" x2="630" y2="220" stroke="#7c3aed" stroke-width="1" stroke-dasharray="3,2" marker-end="url(#cl-arP)"/>
+  <text x="640" y="266" font-size="9" fill="#7c3aed" font-style="italic">SELECT inbound</text>
+  <line x1="762" y1="364" x2="762" y2="368" stroke="#ea580c" stroke-width="1.2" marker-end="url(#cl-arO)"/>
+  <line x1="762" y1="404" x2="630" y2="418" stroke="#7c3aed" stroke-width="1.2" marker-end="url(#cl-arP)"/>
+  <text x="700" y="416" font-size="9" fill="#7c3aed" font-style="italic">INSERT outbound</text>
+  <line x1="470" y1="427" x2="430" y2="462" stroke="#0d9488" stroke-width="1" stroke-dasharray="3,2" marker-end="url(#cl-ar)"/>
+  <text x="438" y="450" font-size="9" fill="#0d9488" font-style="italic">poll (1s)</text>
+  <line x1="230" y1="467" x2="190" y2="467" stroke="#0d9488" stroke-width="1.2" marker-end="url(#cl-ar)"/>
+  <text x="210" y="460" font-size="9" fill="#0d9488">socket.write</text>
+  <text x="110" y="494" font-size="9" fill="#dc2626" text-anchor="middle">no host↔container IPC — only 3 SQLite files</text>
+  <text x="550" y="494" font-size="9" fill="#7c3aed" text-anchor="middle">single-writer: each table has exactly one writer</text>
+  <text x="762" y="494" font-size="9" fill="#ea580c" text-anchor="middle">wake = fire-forget · delivery = pull</text>
+</svg>
+<span class="figure-caption">图 T1.29 ｜ 整条 18 步闭环：4 列泳道（client / host / SQLite / container）覆盖 18 个步骤；紫色箭头是 DB 读写（唯一的跨进程同步点），青/橙箭头是同进程调用，蓝→青是 socket。注意：host↔container 之间 ZERO IPC，只通过 3 个 SQLite 文件对账。</span>
+
+<details>
+<summary>ASCII 原版</summary>
+
+```
+CLI client       Host (Node)            SQLite (the wire)        Container (Bun)
+──────────       ───────────            ─────────────────        ─────────────────
+01 chat.ts ──socket──► 02 CLI adapter
+                       03-07 router/session
+                                 │ INSERT
+                                 ▼
+                               08 inbound.db (seq=2 even)
+                       09 container-runner ──── spawn (one-shot) ──►
+                                                                  10-11 boot + poll-loop
+                                                                          │ SELECT
+                                                                          ▼
+                                                                  12-13 formatter + SDK
+                                                                  14 dual-track (await+push)
+                                                                          │ INSERT
+                                                                          ▼
+                                                                  15 outbound.db (seq=3 odd)
+                       16-17 delivery + adapter ◄─ pollActive 1s ──┘
+                                 │ socket.write
+                                 ▼
+18 print + exit 0
+```
+
+</details>
 
 **整条 tour 闭环复盘**——18 步走下来你应该带走的 macro 认知：
 

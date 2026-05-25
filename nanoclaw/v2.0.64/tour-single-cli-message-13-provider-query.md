@@ -80,6 +80,89 @@ return json.content[0].text;
 
 ## 5. nanoclaw 的做法
 
+<svg viewBox="0 0 820 420" xmlns="http://www.w3.org/2000/svg" class="figure-svg" role="img" aria-label="ClaudeProvider.query layering: MessageStream into sdkQuery into cli.js child, AgentQuery handle out">
+  <defs>
+    <marker id="pq-ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/></marker>
+  </defs>
+  <text x="410" y="20" font-size="13" font-weight="700" fill="currentColor" text-anchor="middle">ClaudeProvider.query() — sync return of AgentQuery handle, ≪1ms</text>
+  <rect x="20" y="40" width="780" height="80" rx="6" fill="#fef3c7" stroke="#ea580c" stroke-width="1.2"/>
+  <text x="410" y="58" font-size="12" font-weight="700" fill="#9a3412" text-anchor="middle">poll-loop.ts:170 — provider.query({ prompt, continuation, cwd, systemContext })</text>
+  <rect x="36" y="70" width="180" height="40" rx="4" fill="#ffffff" stroke="#fcd34d"/>
+  <text x="126" y="86" font-size="10" font-weight="600" fill="currentColor" text-anchor="middle">prompt: string (XML)</text>
+  <text x="126" y="100" font-size="9" fill="#64748b" text-anchor="middle">from step 12 formatter</text>
+  <rect x="226" y="70" width="180" height="40" rx="4" fill="#ffffff" stroke="#fcd34d"/>
+  <text x="316" y="86" font-size="10" font-weight="600" fill="currentColor" text-anchor="middle">continuation: string | undef</text>
+  <text x="316" y="100" font-size="9" fill="#64748b" text-anchor="middle">SDK session id (resume)</text>
+  <rect x="416" y="70" width="180" height="40" rx="4" fill="#ffffff" stroke="#fcd34d"/>
+  <text x="506" y="86" font-size="10" font-weight="600" fill="currentColor" text-anchor="middle">cwd = /workspace/agent</text>
+  <text x="506" y="100" font-size="9" fill="#64748b" text-anchor="middle">+ additionalDirectories</text>
+  <rect x="606" y="70" width="178" height="40" rx="4" fill="#ffffff" stroke="#fcd34d"/>
+  <text x="695" y="86" font-size="10" font-weight="600" fill="currentColor" text-anchor="middle">systemContext.instructions</text>
+  <text x="695" y="100" font-size="9" fill="#64748b" text-anchor="middle">append to claude_code preset</text>
+  <rect x="20" y="140" width="780" height="130" rx="6" fill="#ecfdf5" stroke="#0d9488" stroke-width="1.2"/>
+  <text x="410" y="158" font-size="12" font-weight="700" fill="#0f766e" text-anchor="middle">ClaudeProvider.query() — providers/claude.ts:280-356</text>
+  <rect x="36" y="170" width="220" height="88" rx="4" fill="#ffffff" stroke="#5eead4"/>
+  <text x="146" y="188" font-size="11" font-weight="700" fill="currentColor" text-anchor="middle">a) MessageStream</text>
+  <text x="146" y="204" font-size="10" fill="#64748b" text-anchor="middle">push-based AsyncIterable</text>
+  <text x="146" y="218" font-size="10" fill="#64748b" text-anchor="middle">stream.push(input.prompt)</text>
+  <text x="146" y="236" font-size="9" fill="#94a3b8" text-anchor="middle">later: query.push(followup)</text>
+  <text x="146" y="250" font-size="9" fill="#94a3b8" text-anchor="middle">appends to same stream</text>
+  <rect x="266" y="170" width="282" height="88" rx="4" fill="#ffffff" stroke="#5eead4"/>
+  <text x="407" y="188" font-size="11" font-weight="700" fill="currentColor" text-anchor="middle">b) sdkQuery({ prompt: stream, options })</text>
+  <text x="407" y="206" font-size="10" fill="#64748b" text-anchor="middle">allowedTools = TOOL_ALLOWLIST + mcp__&lt;name&gt;__*</text>
+  <text x="407" y="220" font-size="10" fill="#64748b" text-anchor="middle">disallowedTools = SDK_DISALLOWED_TOOLS</text>
+  <text x="407" y="234" font-size="10" fill="#64748b" text-anchor="middle">systemPrompt: preset + append</text>
+  <text x="407" y="248" font-size="10" fill="#dc2626" text-anchor="middle">hooks: PreToolUse / PostToolUse / PreCompact</text>
+  <rect x="558" y="170" width="226" height="88" rx="4" fill="#ffffff" stroke="#5eead4"/>
+  <text x="671" y="188" font-size="11" font-weight="700" fill="currentColor" text-anchor="middle">c) translateEvents() (lazy gen)</text>
+  <text x="671" y="206" font-size="10" fill="#64748b" text-anchor="middle">SDK msg → ProviderEvent</text>
+  <text x="671" y="220" font-size="10" fill="#64748b" text-anchor="middle">any → activity (heartbeat)</text>
+  <text x="671" y="234" font-size="10" fill="#64748b" text-anchor="middle">init / result / error / progress</text>
+  <text x="671" y="250" font-size="9" fill="#94a3b8" text-anchor="middle">NO partial / NO delta</text>
+  <line x1="256" y1="214" x2="264" y2="214" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#pq-ar)"/>
+  <line x1="548" y1="214" x2="556" y2="214" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#pq-ar)"/>
+  <rect x="20" y="290" width="780" height="80" rx="6" fill="#ddd6fe" stroke="#7c3aed" stroke-width="1.2"/>
+  <text x="410" y="308" font-size="12" font-weight="700" fill="#5b21b6" text-anchor="middle">@anthropic-ai/claude-agent-sdk runtime</text>
+  <rect x="36" y="318" width="244" height="46" rx="4" fill="#ffffff" stroke="#a78bfa"/>
+  <text x="158" y="335" font-size="11" font-weight="600" fill="currentColor" text-anchor="middle">spawn /pnpm/claude (cli.js child)</text>
+  <text x="158" y="350" font-size="10" fill="#64748b" text-anchor="middle">stream-json over stdin/stdout</text>
+  <rect x="290" y="318" width="244" height="46" rx="4" fill="#ffffff" stroke="#a78bfa"/>
+  <text x="412" y="335" font-size="11" font-weight="600" fill="currentColor" text-anchor="middle">agent loop · tool dispatch</text>
+  <text x="412" y="350" font-size="10" fill="#64748b" text-anchor="middle">auto-compact at 165k tokens</text>
+  <rect x="544" y="318" width="240" height="46" rx="4" fill="#ffffff" stroke="#a78bfa"/>
+  <text x="664" y="335" font-size="11" font-weight="600" fill="currentColor" text-anchor="middle">MCP RPC · retry / rate-limit</text>
+  <text x="664" y="350" font-size="10" fill="#64748b" text-anchor="middle">prompt cache · jsonl transcript</text>
+  <rect x="20" y="386" width="780" height="28" rx="4" fill="#fef3c7" stroke="#ea580c" stroke-width="1.5"/>
+  <text x="410" y="404" font-size="11" font-weight="700" fill="currentColor" text-anchor="middle">d) returns AgentQuery { push, end, events, abort } — SYNC, ≪1ms; for-await drives SDK in step 14</text>
+</svg>
+<span class="figure-caption">图 T1.23 ｜ ClaudeProvider.query() 分层：橙色 nanoclaw 接口层（MessageStream + sdkQuery + 翻译 generator）→ 紫色 SDK runtime（spawn cli.js + agent loop + MCP + cache）。返回 AgentQuery 同步、事件惰性。</span>
+
+<details>
+<summary>ASCII 原版</summary>
+
+```
+poll-loop.ts:170
+    provider.query({ prompt, continuation, cwd, systemContext })
+                              │
+                              ▼
+┌─ ClaudeProvider.query() (claude.ts:280-356) ─────────────────┐
+│  a) MessageStream  →  b) sdkQuery({ prompt: stream, ... })   │
+│       push(prompt)     allowedTools / hooks / preset         │
+│                          │                                   │
+│                          ▼                                   │
+│              c) translateEvents() (lazy generator)           │
+│                          │                                   │
+│                          ▼                                   │
+│        d) return { push, end, events, abort }                │
+└──────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+       @anthropic-ai/claude-agent-sdk runtime
+       spawn /pnpm/claude  ·  agent loop  ·  MCP  ·  cache
+```
+
+</details>
+
 `ClaudeProvider.query()` 是 nanoclaw 与 SDK 之间唯一的接口。它做四件事：
 
 **a. 用 push-based async iterable 喂初始 prompt。**

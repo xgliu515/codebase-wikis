@@ -50,6 +50,22 @@ const SWEEP_INTERVAL_MS = 60_000;
 
 它们不共享 setTimeout chain，也不共享锁。
 
+<svg viewBox="0 0 820 260" xmlns="http://www.w3.org/2000/svg" class="figure-svg" role="img" aria-label="Three independent timer loops in the host process: delivery pollActive (1s), delivery pollSweep (60s), and host-sweep (60s)"><defs><marker id="ar10a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/></marker></defs><text x="410" y="22" text-anchor="middle" font-size="14" font-weight="700" fill="currentColor">同进程内三条独立 setTimeout 链</text><text x="410" y="40" text-anchor="middle" font-size="11" fill="#64748b">不共享 timer，不共享锁，读写区域不重叠</text><g><rect x="30" y="70" width="240" height="80" rx="8" fill="#fed7aa" stroke="#ea580c" stroke-width="1.5"/><text x="150" y="92" text-anchor="middle" font-size="13" font-weight="700" fill="currentColor">delivery pollActive</text><text x="150" y="110" text-anchor="middle" font-size="11" fill="#64748b">每 1 秒 · running 集合</text><text x="150" y="130" text-anchor="middle" font-size="11" fill="currentColor">紧贴 outbound.db 投递</text><text x="150" y="146" text-anchor="middle" font-size="10" fill="#94a3b8">read outbound · write inbound.delivered</text></g><g><rect x="290" y="70" width="240" height="80" rx="8" fill="#99f6e4" stroke="#0d9488" stroke-width="1.5"/><text x="410" y="92" text-anchor="middle" font-size="13" font-weight="700" fill="currentColor">delivery pollSweep</text><text x="410" y="110" text-anchor="middle" font-size="11" fill="#64748b">每 60 秒 · active 集合</text><text x="410" y="130" text-anchor="middle" font-size="11" fill="currentColor">兜底投递 + race 修复</text><text x="410" y="146" text-anchor="middle" font-size="10" fill="#94a3b8">read outbound · write inbound.delivered</text></g><g><rect x="550" y="70" width="240" height="80" rx="8" fill="#ddd6fe" stroke="#7c3aed" stroke-width="1.5"/><text x="670" y="92" text-anchor="middle" font-size="13" font-weight="700" fill="currentColor">host-sweep</text><text x="670" y="110" text-anchor="middle" font-size="11" fill="#64748b">每 60 秒 · active 集合</text><text x="670" y="130" text-anchor="middle" font-size="11" fill="currentColor">ack 同步 / stuck / due / recur</text><text x="670" y="146" text-anchor="middle" font-size="10" fill="#94a3b8">read+write inbound · read outbound</text></g><g><rect x="60" y="180" width="700" height="60" rx="6" fill="#f1f5f9" stroke="#cbd5e1" stroke-dasharray="4,3"/><text x="410" y="202" text-anchor="middle" font-size="11" fill="#64748b">不变量：outbound.db 只有 container 写 (host 在 kill 后短暂 RW)；inbound.db 只有 host 写</text><text x="410" y="222" text-anchor="middle" font-size="11" fill="#64748b">三条 loop 串行写 inbound (better-sqlite3 同步) · busy_timeout=5000 兜底跨 connection 抢锁</text></g></svg>
+<span class="figure-caption">图 R10.1 ｜ host 进程内三条独立 timer loop 的频率、作用集合、读写区域；解释为何不共享锁也安全。</span>
+
+<details>
+<summary>ASCII 原版</summary>
+
+```
+| Loop                         | 间隔 | 集合              | 职责                                            |
+|------------------------------|------|------------------|------------------------------------------------|
+| delivery `pollActive`        | 1s   | running          | 紧贴 outbound.db 投递                          |
+| delivery `pollSweep`         | 60s  | active           | 兜底投递 + race 修复                           |
+| host-sweep `sweep`           | 60s  | active           | processing_ack 同步、stuck 检测、due wake、recurrence |
+```
+
+</details>
+
 ---
 
 ### 3. 入口结构
@@ -651,6 +667,27 @@ const interval = CronExpressionParser.parse(msg.recurrence, { tz: TIMEZONE });
 
 整套流程从 OOM 到恢复 < 2 个 sweep tick = < 120s。
 
+<svg viewBox="0 0 880 360" xmlns="http://www.w3.org/2000/svg" class="figure-svg" role="img" aria-label="OOM recovery timeline showing how sweep wakes a new container and clears stale processing_ack rows within two ticks"><defs><marker id="ar10d" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/></marker></defs><text x="440" y="22" text-anchor="middle" font-size="14" font-weight="700" fill="currentColor">OOM 之后的恢复：&lt; 2 个 sweep tick (&lt; 120s)</text><line x1="40" y1="60" x2="840" y2="60" stroke="#cbd5e1" stroke-width="1"/><text x="40" y="50" font-size="10" fill="#94a3b8">t=0</text><text x="440" y="50" font-size="10" fill="#94a3b8">t=60s</text><text x="840" y="50" text-anchor="end" font-size="10" fill="#94a3b8">t≤120s</text><g><circle cx="60" cy="60" r="5" fill="#dc2626"/><rect x="40" y="80" width="200" height="60" rx="6" fill="#fef2f2" stroke="#dc2626" stroke-width="1.5"/><text x="140" y="100" text-anchor="middle" font-size="11" font-weight="700" fill="#dc2626">OOM</text><text x="140" y="118" text-anchor="middle" font-size="10" fill="#64748b">Bash 进程被 kernel 杀</text><text x="140" y="132" text-anchor="middle" font-size="10" fill="#64748b">activeContainers.delete</text></g><g><rect x="40" y="160" width="200" height="50" rx="6" fill="#f1f5f9" stroke="#cbd5e1"/><text x="140" y="180" text-anchor="middle" font-size="11" fill="currentColor">outbound 残留</text><text x="140" y="196" text-anchor="middle" font-size="10" fill="#64748b">processing_ack(msg-A, processing)</text></g><line x1="240" y1="120" x2="290" y2="120" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar10d)"/><g><circle cx="320" cy="60" r="5" fill="#7c3aed"/><rect x="300" y="80" width="280" height="220" rx="6" fill="#ddd6fe" stroke="#7c3aed" stroke-width="1.5"/><text x="440" y="100" text-anchor="middle" font-size="12" font-weight="700" fill="currentColor">sweep tick #1</text><text x="312" y="120" font-size="10" fill="#64748b">§1 syncAck: skip (status=processing)</text><text x="312" y="138" font-size="10" fill="#64748b">§2 dueCount=1 &amp;&amp; !alive</text><text x="312" y="156" font-size="10" font-weight="700" fill="#16a34a">     → wakeContainer ← 新容器 spawn</text><text x="312" y="174" font-size="10" fill="#64748b">§3 alive=true 再次</text><text x="312" y="192" font-size="10" fill="#64748b">     ceiling: heartbeat 不存在 → skip</text><text x="312" y="210" font-size="10" fill="#64748b">     claims age=5s &lt; 60s → skip</text><text x="312" y="228" font-size="10" fill="#64748b">     decision = ok</text><text x="312" y="246" font-size="10" fill="#64748b">§4 alive → skip reset</text><text x="312" y="264" font-size="10" fill="#64748b">§5 recurrence: no-op</text><text x="312" y="286" font-size="10" font-weight="600" fill="#7c3aed">新容器 startup: clearStaleProcessingAcks</text></g><line x1="580" y1="190" x2="630" y2="190" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar10d)"/><g><circle cx="660" cy="60" r="5" fill="#0d9488"/><rect x="640" y="80" width="200" height="220" rx="6" fill="#99f6e4" stroke="#0d9488" stroke-width="1.5"/><text x="740" y="100" text-anchor="middle" font-size="12" font-weight="700" fill="currentColor">sweep tick #2</text><text x="652" y="120" font-size="10" fill="#64748b">新容器读 msg-A</text><text x="652" y="136" font-size="10" fill="#64748b">重新处理</text><text x="652" y="156" font-size="10" fill="#64748b">写 processing_ack</text><text x="652" y="172" font-size="10" fill="#64748b">     (status=completed)</text><text x="652" y="192" font-size="10" fill="#64748b">写 outbound 回复</text><text x="652" y="216" font-size="10" font-weight="700" fill="#16a34a">§1 syncAck: messages_in</text><text x="652" y="232" font-size="10" font-weight="700" fill="#16a34a">     → status=completed</text><text x="740" y="278" text-anchor="middle" font-size="11" font-weight="700" fill="#16a34a">恢复完成</text></g><g><rect x="40" y="320" width="800" height="30" rx="4" fill="#f1f5f9" stroke="#cbd5e1" stroke-dasharray="4,3"/><text x="440" y="340" text-anchor="middle" font-size="11" fill="#64748b">关键顺序：先 wake 再 reset — 让容器自己 startup 清理 orphan，否则 process_after 被 bump 死循环</text></g></svg>
+<span class="figure-caption">图 R10.4 ｜ OOM 之后的两 tick 恢复时间线：tick#1 wake 新容器并由容器自清理，tick#2 同步 ack 完成恢复，最坏 120 秒。</span>
+
+<details>
+<summary>ASCII 原版</summary>
+
+```
+t=0       OOM (container killed by kernel)
+          outbound.processing_ack(msg-A, processing) 残留
+t≤60s     sweep tick #1
+          §1 syncAck: skip (status=processing)
+          §2 dueCount=1 && !alive → wakeContainer (新容器 spawn)
+          §3 alive=true: ceiling 跳过 (heartbeat 不存在), claim age<60s → ok
+          新容器 startup: clearStaleProcessingAcks 清掉旧 claim
+t≤120s    sweep tick #2
+          新容器读 msg-A 重处理, 写 processing_ack(completed) + outbound 回复
+          §1 syncAck: messages_in → completed  ✓
+```
+
+</details>
+
 #### 5.2 schedule_task 5 分钟提醒
 
 1. agent 调 `schedule_task({prompt:'喝水', processAfter:'5 分钟后'})`。
@@ -720,6 +757,27 @@ const interval = CronExpressionParser.parse(msg.recurrence, { tz: TIMEZONE });
 6. 下次 wake 时容器重新尝试这条消息。
 
 这设计有点 conservative —— agent 声明 5 分钟 timeout，sweep 给 5 分钟整 grace，但 5 分钟过了立刻 kill 容易让一些刚好运行 5min1s 的脚本被 kill。在实际中 agent 不会调用恰好 5 分钟的命令（Claude 会留 buffer），所以不是问题。
+
+<svg viewBox="0 0 820 440" xmlns="http://www.w3.org/2000/svg" class="figure-svg" role="img" aria-label="decideStuckAction decision tree: heartbeat ceiling rule then per-claim stuck rule"><defs><marker id="ar10c" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/></marker></defs><text x="410" y="22" text-anchor="middle" font-size="14" font-weight="700" fill="currentColor">decideStuckAction — 三信号判活逻辑</text><g><rect x="40" y="50" width="220" height="70" rx="6" fill="#ddd6fe" stroke="#7c3aed" stroke-width="1.5"/><text x="150" y="72" text-anchor="middle" font-size="12" font-weight="700" fill="currentColor">heartbeat mtime</text><text x="150" y="90" text-anchor="middle" font-size="10" fill="#64748b">.heartbeat 文件</text><text x="150" y="106" text-anchor="middle" font-size="10" fill="#64748b">每次 SDK 事件 touch</text></g><g><rect x="300" y="50" width="220" height="70" rx="6" fill="#fed7aa" stroke="#ea580c" stroke-width="1.5"/><text x="410" y="72" text-anchor="middle" font-size="12" font-weight="700" fill="currentColor">container_state</text><text x="410" y="90" text-anchor="middle" font-size="10" fill="#64748b">current_tool, declared</text><text x="410" y="106" text-anchor="middle" font-size="10" fill="#64748b">tool_declared_timeout_ms</text></g><g><rect x="560" y="50" width="220" height="70" rx="6" fill="#99f6e4" stroke="#0d9488" stroke-width="1.5"/><text x="670" y="72" text-anchor="middle" font-size="12" font-weight="700" fill="currentColor">processing_ack 表</text><text x="670" y="90" text-anchor="middle" font-size="10" fill="#64748b">status=processing 行</text><text x="670" y="106" text-anchor="middle" font-size="10" fill="#64748b">status_changed 时间戳</text></g><line x1="150" y1="120" x2="280" y2="155" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar10c)"/><line x1="410" y1="120" x2="410" y2="155" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar10c)"/><line x1="670" y1="120" x2="540" y2="155" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar10c)"/><g><rect x="240" y="160" width="340" height="40" rx="6" fill="#fef2f2" stroke="#dc2626" stroke-width="1.5"/><text x="410" y="184" text-anchor="middle" font-size="12" font-weight="700" fill="#dc2626">Rule 1: 绝对 ceiling (30min, 放宽到 declaredBashMs)</text></g><g><rect x="80" y="220" width="280" height="50" rx="6" fill="#f0fdf4" stroke="#16a34a"/><text x="220" y="240" text-anchor="middle" font-size="11" fill="currentColor">heartbeat 不存在 → 跳过 ceiling</text><text x="220" y="258" text-anchor="middle" font-size="10" fill="#64748b">新容器 spawn 时 rm 文件给 grace</text></g><g><rect x="460" y="220" width="280" height="50" rx="6" fill="#fef2f2" stroke="#dc2626" stroke-width="1.5"/><text x="600" y="240" text-anchor="middle" font-size="11" font-weight="700" fill="#dc2626">heartbeatAge &gt; ceiling → kill-ceiling</text><text x="600" y="258" text-anchor="middle" font-size="10" fill="#64748b">容器 30 分钟没动</text></g><line x1="320" y1="200" x2="220" y2="220" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar10c)"/><line x1="500" y1="200" x2="600" y2="220" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar10c)"/><g><rect x="240" y="290" width="340" height="40" rx="6" fill="#fef2f2" stroke="#dc2626" stroke-width="1.5"/><text x="410" y="314" text-anchor="middle" font-size="12" font-weight="700" fill="#dc2626">Rule 2: claim-stuck (60s, 放宽到 declaredBashMs)</text></g><line x1="410" y1="270" x2="410" y2="290" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar10c)"/><g><rect x="80" y="350" width="280" height="50" rx="6" fill="#f0fdf4" stroke="#16a34a"/><text x="220" y="370" text-anchor="middle" font-size="11" fill="currentColor">claim 后心跳更新过 → 跳过</text><text x="220" y="388" text-anchor="middle" font-size="10" fill="#64748b">heartbeatMtimeMs &gt; claimedAt</text></g><g><rect x="460" y="350" width="280" height="50" rx="6" fill="#fef2f2" stroke="#dc2626" stroke-width="1.5"/><text x="600" y="370" text-anchor="middle" font-size="11" font-weight="700" fill="#dc2626">claimAge &gt; tolerance &amp;&amp; 无心跳 → kill-claim</text><text x="600" y="388" text-anchor="middle" font-size="10" fill="#64748b">接消息后立刻卡死</text></g><line x1="320" y1="330" x2="220" y2="350" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar10c)"/><line x1="500" y1="330" x2="600" y2="350" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar10c)"/></svg>
+<span class="figure-caption">图 R10.3 ｜ decideStuckAction 用三个信号 (heartbeat / container_state / claims) 串行跑两条 rule：绝对 ceiling + per-claim stuck；右侧红色路径触发 kill。</span>
+
+<details>
+<summary>ASCII 原版</summary>
+
+```
+3 inputs                  Rule 1: ceiling (30min)        Rule 2: claim-stuck (60s)
+┌─────────────────┐       ┌──────────────────────┐       ┌─────────────────────────┐
+│ heartbeat mtime │──┐    │ if hbAge > ceiling   │       │ for claim in claims:    │
+├─────────────────┤  ├──→ │   → kill-ceiling     │  ──→  │   if age > tol          │
+│ container_state │──┤    │ else if no hb → skip │       │      && no hb after     │
+├─────────────────┤  │    └──────────────────────┘       │      → kill-claim       │
+│ claims (proc.)  │──┘                                   └─────────────────────────┘
+└─────────────────┘
+   ceiling = max(30min, declaredBashMs)
+   tolerance = max(60s,  declaredBashMs)
+```
+
+</details>
 
 ---
 
@@ -896,6 +954,12 @@ sweep 在这种情况下的作用：on-wake message（kind=on_wake 的 messages_
 
 ### 10. 总结
 
+<svg viewBox="0 0 820 460" xmlns="http://www.w3.org/2000/svg" class="figure-svg" role="img" aria-label="sweepSession five-step pipeline running every 60 seconds per active session"><defs><marker id="ar10b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/></marker></defs><text x="410" y="22" text-anchor="middle" font-size="14" font-weight="700" fill="currentColor">sweepSession(session) — 60 秒一轮的 5 步流水线</text><g><rect x="40" y="50" width="200" height="60" rx="6" fill="#ddd6fe" stroke="#7c3aed" stroke-width="1.5"/><text x="140" y="72" text-anchor="middle" font-size="12" font-weight="700" fill="currentColor">open inbound.db (RW)</text><text x="140" y="92" text-anchor="middle" font-size="10" fill="#64748b">不存在则 return — 兜底</text></g><g><rect x="580" y="50" width="200" height="60" rx="6" fill="#fed7aa" stroke="#ea580c" stroke-width="1.5"/><text x="680" y="72" text-anchor="middle" font-size="12" font-weight="700" fill="currentColor">open outbound.db (RO)</text><text x="680" y="92" text-anchor="middle" font-size="10" fill="#64748b">不存在则跳过 §1/3/4/5</text></g><g><rect x="40" y="135" width="740" height="50" rx="6" fill="#f1f5f9" stroke="#cbd5e1"/><text x="60" y="155" font-size="12" font-weight="700" fill="#7c3aed">1. syncProcessingAcks</text><text x="60" y="172" font-size="11" fill="#64748b">读 outbound.processing_ack(status=completed/failed) → UPDATE inbound.messages_in.status</text><text x="760" y="164" text-anchor="end" font-size="10" fill="#94a3b8">事务批量提交</text></g><g><rect x="40" y="195" width="740" height="50" rx="6" fill="#f0fdf4" stroke="#16a34a" stroke-width="1.5"/><text x="60" y="215" font-size="12" font-weight="700" fill="#16a34a">2. dueCount &gt; 0 &amp;&amp; !alive → wakeContainer</text><text x="60" y="232" font-size="11" fill="#64748b">countDueMessages: pending AND trigger=1 AND process_after &lt;= now — 先 wake 再 stuck</text></g><g><rect x="40" y="255" width="740" height="50" rx="6" fill="#fef2f2" stroke="#dc2626" stroke-width="1.5"/><text x="60" y="275" font-size="12" font-weight="700" fill="#dc2626">3. alive → enforceRunningContainerSla</text><text x="60" y="292" font-size="11" fill="#64748b">heartbeat mtime + claim age + container_state.bash_timeout → kill-ceiling / kill-claim</text></g><g><rect x="40" y="315" width="740" height="50" rx="6" fill="#fef2f2" stroke="#dc2626" stroke-width="1.5"/><text x="60" y="335" font-size="12" font-weight="700" fill="#dc2626">4. !alive → resetStuckProcessingRows</text><text x="60" y="352" font-size="11" fill="#64748b">crashed container 留下的 claim：retryWithBackoff (5/10/20/40/80s) · MAX_TRIES=5 后 failed</text></g><g><rect x="40" y="375" width="740" height="50" rx="6" fill="#ddd6fe" stroke="#7c3aed" stroke-width="1.5"/><text x="60" y="395" font-size="12" font-weight="700" fill="#7c3aed">5. handleRecurrence (dynamic import)</text><text x="60" y="412" font-size="11" fill="#64748b">完成的 recurring task → cron-parser 算 next_run → INSERT 新行 (series_id 串起来)</text></g><g><rect x="220" y="430" width="380" height="22" rx="4" fill="#f1f5f9" stroke="#cbd5e1"/><text x="410" y="446" text-anchor="middle" font-size="11" fill="#64748b">finally: inDb.close() · outDb?.close()</text></g><line x1="140" y1="110" x2="140" y2="135" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar10b)"/><line x1="680" y1="110" x2="680" y2="135" stroke="#94a3b8" stroke-width="1.2" stroke-dasharray="3,2" marker-end="url(#ar10b)"/></svg>
+<span class="figure-caption">图 R10.2 ｜ sweepSession 每 60 秒一轮的 5 步流水线：ack 同步 → wake → stuck 检测 → crashed cleanup → recurrence；颜色对应 §4 的源代码段。</span>
+
+<details>
+<summary>ASCII 原版</summary>
+
 ```
 host-sweep (60s)
   for session in getActiveSessions():
@@ -911,6 +975,8 @@ host-sweep (60s)
       └────────────────────────────────────────────────────┘
       close DBs
 ```
+
+</details>
 
 5 个步骤 60s 跑一遍，覆盖所有"非事件驱动"的兜底逻辑：
 - container 死活监控

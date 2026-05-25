@@ -24,6 +24,65 @@
 
 ## 角色清单：哪些组件参与一次入站
 
+<svg viewBox="0 0 880 440" xmlns="http://www.w3.org/2000/svg" class="figure-svg" role="img" aria-label="routeInbound participants: adapter, module hooks, central DB, per-session inbound DB, container wake">
+  <defs>
+    <marker id="ar61" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/></marker>
+  </defs>
+  <rect x="20" y="30" width="140" height="56" rx="6" fill="#e0f2fe" stroke="#0ea5e9" stroke-width="1.5"/>
+  <text x="90" y="54" text-anchor="middle" font-size="12" font-weight="600" fill="currentColor">消息平台</text>
+  <text x="90" y="72" text-anchor="middle" font-size="10" fill="#64748b">Slack / Discord / TG…</text>
+  <rect x="200" y="30" width="140" height="56" rx="6" fill="#ccfbf1" stroke="#0d9488" stroke-width="1.5"/>
+  <text x="270" y="54" text-anchor="middle" font-size="12" font-weight="600" fill="currentColor">channel adapter</text>
+  <text x="270" y="72" text-anchor="middle" font-size="10" fill="#64748b">onInbound(event)</text>
+  <rect x="400" y="30" width="200" height="56" rx="6" fill="#ffedd5" stroke="#ea580c" stroke-width="2"/>
+  <text x="500" y="54" text-anchor="middle" font-size="13" font-weight="700" fill="currentColor">routeInbound(event)</text>
+  <text x="500" y="72" text-anchor="middle" font-size="10" fill="#64748b">src/router.ts:158</text>
+  <line x1="160" y1="58" x2="196" y2="58" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar61)"/>
+  <line x1="340" y1="58" x2="396" y2="58" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar61)"/>
+  <rect x="640" y="20" width="220" height="120" rx="6" fill="#ddd6fe" stroke="#7c3aed" stroke-width="1.5"/>
+  <text x="750" y="40" text-anchor="middle" font-size="12" font-weight="700" fill="currentColor">module hooks (5)</text>
+  <text x="652" y="60" font-size="10" fill="#64748b">messageInterceptor</text>
+  <text x="652" y="76" font-size="10" fill="#64748b">senderResolver</text>
+  <text x="652" y="92" font-size="10" fill="#64748b">accessGate</text>
+  <text x="652" y="108" font-size="10" fill="#64748b">senderScopeGate</text>
+  <text x="652" y="124" font-size="10" fill="#64748b">channelRequestGate</text>
+  <line x1="600" y1="70" x2="638" y2="80" stroke="#94a3b8" stroke-width="1.2" stroke-dasharray="3,2" marker-end="url(#ar61)"/>
+  <rect x="60" y="180" width="380" height="200" rx="6" fill="#ddd6fe" stroke="#7c3aed" stroke-width="1.5"/>
+  <text x="250" y="200" text-anchor="middle" font-size="13" font-weight="700" fill="currentColor">v2.db (central)</text>
+  <text x="78" y="222" font-size="11" fill="currentColor">messaging_groups</text><text x="280" y="222" font-size="10" fill="#64748b">getMessagingGroupWithAgentCount</text>
+  <text x="78" y="240" font-size="11" fill="currentColor">messaging_group_agents</text><text x="280" y="240" font-size="10" fill="#64748b">getMessagingGroupAgents</text>
+  <text x="78" y="258" font-size="11" fill="currentColor">sessions</text><text x="280" y="258" font-size="10" fill="#64748b">resolveSession</text>
+  <text x="78" y="276" font-size="11" fill="currentColor">users / user_roles</text><text x="280" y="276" font-size="10" fill="#64748b">extractAndUpsertUser</text>
+  <text x="78" y="294" font-size="11" fill="currentColor">agent_group_members</text><text x="280" y="294" font-size="10" fill="#64748b">canAccessAgentGroup</text>
+  <text x="78" y="312" font-size="11" fill="currentColor">unregistered_senders</text><text x="280" y="312" font-size="10" fill="#64748b">recordDroppedMessage</text>
+  <text x="78" y="330" font-size="11" fill="currentColor">pending_channel_approvals</text><text x="280" y="330" font-size="10" fill="#64748b">requestChannelApproval</text>
+  <text x="78" y="348" font-size="11" fill="currentColor">pending_sender_approvals</text><text x="280" y="348" font-size="10" fill="#64748b">requestSenderApproval</text>
+  <line x1="500" y1="86" x2="380" y2="178" stroke="#94a3b8" stroke-width="1.2" stroke-dasharray="3,2" marker-end="url(#ar61)"/>
+  <rect x="480" y="180" width="200" height="80" rx="6" fill="#ffedd5" stroke="#ea580c" stroke-width="1.5"/>
+  <text x="580" y="206" text-anchor="middle" font-size="12" font-weight="700" fill="currentColor">inbound.db (per session)</text>
+  <text x="580" y="226" text-anchor="middle" font-size="11" fill="currentColor">messages_in</text>
+  <text x="580" y="246" text-anchor="middle" font-size="10" fill="#64748b">writeSessionMessage</text>
+  <line x1="500" y1="86" x2="560" y2="178" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar61)"/>
+  <rect x="480" y="300" width="200" height="80" rx="6" fill="#ffedd5" stroke="#ea580c" stroke-width="1.5"/>
+  <text x="580" y="326" text-anchor="middle" font-size="12" font-weight="700" fill="currentColor">wakeContainer</text>
+  <text x="580" y="346" text-anchor="middle" font-size="10" fill="#64748b">fire-and-forget</text>
+  <text x="580" y="362" text-anchor="middle" font-size="10" fill="#64748b">never throws</text>
+  <line x1="580" y1="260" x2="580" y2="298" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar61)"/>
+  <rect x="720" y="180" width="140" height="200" rx="6" fill="#fef2f2" stroke="#dc2626" stroke-width="1.2" stroke-dasharray="4,3"/>
+  <text x="790" y="202" text-anchor="middle" font-size="11" font-weight="600" fill="currentColor">contract</text>
+  <text x="730" y="222" font-size="10" fill="#64748b">routeInbound</text>
+  <text x="730" y="236" font-size="10" fill="#64748b">几乎不 throw</text>
+  <text x="730" y="256" font-size="10" fill="#64748b">drop → 日志 + DB</text>
+  <text x="730" y="270" font-size="10" fill="#64748b">而非异常</text>
+  <text x="730" y="296" font-size="10" fill="#64748b">module 缺席</text>
+  <text x="730" y="310" font-size="10" fill="#64748b">→ allow-all</text>
+  <text x="730" y="324" font-size="10" fill="#64748b">退化不崩溃</text>
+</svg>
+<span class="figure-caption">图 R6.1 ｜ routeInbound 的角色拼盘：adapter（青）转交给 router（橙），router 通过 module hooks（紫）查/写 central DB，命中后写入 per-session inbound.db 并 fire-and-forget 唤起容器</span>
+
+<details>
+<summary>ASCII 原版</summary>
+
 ```
             +--------+        adapter.onInbound          +--------------------+
   消息平台→ |adapter | ────────────────────────────────→ | routeInbound(event)|
@@ -56,6 +115,8 @@
                                                        | wakeContainer (async) |
                                                        +-----------------------+
 ```
+
+</details>
 
 注意所有 module hook 都是 **运行时注册** 的（chapter 4 已经讲过 module system 的来由）。如果 permissions 模块没装，`routeInbound` 仍然能跑通——`accessGate` 默认 allow-all，`senderResolver` 返回 `null`，路由退化成"任何 channel 收到的任何消息直接写进每个 wire 的 session"。这是 v2 一贯的设计原则：**core 不假设 module 存在；module 失败要降级而不是 crash**。
 
@@ -214,6 +275,52 @@ if (agentCount === 0) {
 
 走到这里说明 messaging group 行存在（或刚 auto-create）但 `messaging_group_agents` 为 0。三条分支：
 
+<svg viewBox="0 0 760 340" xmlns="http://www.w3.org/2000/svg" class="figure-svg" role="img" aria-label="agentCount==0 decision tree: silent drop on non-mention, silent drop on denied channel, or escalate via channelRequestGate">
+  <defs>
+    <marker id="ar62" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/></marker>
+  </defs>
+  <rect x="280" y="20" width="200" height="44" rx="6" fill="#ffedd5" stroke="#ea580c" stroke-width="2"/>
+  <text x="380" y="40" text-anchor="middle" font-size="13" font-weight="700" fill="currentColor">agentCount == 0</text>
+  <text x="380" y="56" text-anchor="middle" font-size="10" fill="#64748b">router.ts:210</text>
+  <line x1="380" y1="64" x2="130" y2="120" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar62)"/>
+  <line x1="380" y1="64" x2="380" y2="120" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar62)"/>
+  <line x1="380" y1="64" x2="630" y2="120" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar62)"/>
+  <text x="220" y="100" font-size="11" fill="#64748b">!isMention</text>
+  <text x="390" y="100" font-size="11" fill="#64748b">denied_at != null</text>
+  <text x="540" y="100" font-size="11" fill="#64748b">else (escalate)</text>
+  <rect x="40" y="124" width="200" height="120" rx="6" fill="#fef2f2" stroke="#dc2626" stroke-width="1.5"/>
+  <text x="140" y="146" text-anchor="middle" font-size="12" font-weight="700" fill="currentColor">silent drop</text>
+  <text x="140" y="166" text-anchor="middle" font-size="10" fill="#64748b">无 DB 写</text>
+  <text x="140" y="182" text-anchor="middle" font-size="10" fill="#64748b">无日志</text>
+  <text x="140" y="208" text-anchor="middle" font-size="10" fill="#64748b">理由：bot 在 100 人群里</text>
+  <text x="140" y="222" text-anchor="middle" font-size="10" fill="#64748b">收到的无关消息</text>
+  <text x="140" y="236" text-anchor="middle" font-size="10" fill="#64748b">不该为之写 DB 行</text>
+  <rect x="280" y="124" width="200" height="120" rx="6" fill="#fef2f2" stroke="#dc2626" stroke-width="1.5"/>
+  <text x="380" y="146" text-anchor="middle" font-size="12" font-weight="700" fill="currentColor">silent drop</text>
+  <text x="380" y="166" text-anchor="middle" font-size="10" fill="#64748b">log.debug 一行</text>
+  <text x="380" y="182" text-anchor="middle" font-size="10" fill="#64748b">no re-escalate</text>
+  <text x="380" y="208" text-anchor="middle" font-size="10" fill="#64748b">理由：owner 已经拒过</text>
+  <text x="380" y="222" text-anchor="middle" font-size="10" fill="#64748b">再轰审批卡只会</text>
+  <text x="380" y="236" text-anchor="middle" font-size="10" fill="#64748b">淹没他的 DM</text>
+  <rect x="520" y="124" width="220" height="120" rx="6" fill="#ccfbf1" stroke="#0d9488" stroke-width="2"/>
+  <text x="630" y="146" text-anchor="middle" font-size="12" font-weight="700" fill="currentColor">escalate</text>
+  <text x="530" y="166" font-size="10" fill="#64748b">1. recordDroppedMessage</text>
+  <text x="530" y="180" font-size="10" fill="#64748b">   ('no_agent_wired')</text>
+  <text x="530" y="196" font-size="10" fill="#64748b">2. channelRequestGate</text>
+  <text x="530" y="210" font-size="10" fill="#64748b">   (fire-and-forget)</text>
+  <text x="530" y="226" font-size="10" fill="#64748b">→ permissions module</text>
+  <text x="530" y="240" font-size="10" fill="#64748b">  投递审批卡到 owner</text>
+  <rect x="520" y="260" width="220" height="60" rx="6" fill="#e0f2fe" stroke="#0ea5e9" stroke-width="1.2" stroke-dasharray="4,3"/>
+  <text x="630" y="282" text-anchor="middle" font-size="11" font-weight="600" fill="currentColor">owner Approve</text>
+  <text x="630" y="300" text-anchor="middle" font-size="10" fill="#64748b">handler 取 original_message</text>
+  <text x="630" y="314" text-anchor="middle" font-size="10" fill="#64748b">→ routeInbound(event) 重放</text>
+  <line x1="630" y1="244" x2="630" y2="258" stroke="#94a3b8" stroke-width="1.2" stroke-dasharray="3,2" marker-end="url(#ar62)"/>
+</svg>
+<span class="figure-caption">图 R6.2 ｜ agentCount==0 时的三条分支：左两条用红色表示丢弃（动机不同），右侧绿色表示触发 channelRequestGate 异步审批流——owner 同意后蓝色虚线显示原 event 被重放走第二次 router</span>
+
+<details>
+<summary>ASCII 原版</summary>
+
 ```
                         agentCount == 0
                               │
@@ -227,6 +334,8 @@ if (agentCount === 0) {
                                              createPendingChannelApproval,
                                              投递 approval 卡到 owner)
 ```
+
+</details>
 
 `denied_at` 的存在解决一个具体的运营痛点：owner 已经明确说 "no, don't connect this channel"，但群里的其他人不知道这件事还在 @ 机器人——如果不挡一下，每条消息都会再次触发 channel approval flow，把 owner 的 DM 淹没。`src/db/messaging-groups.ts:113-115` 提供 `setMessagingGroupDeniedAt` 给 reject handler 写这个时间戳，`src/modules/permissions/index.ts:333` 在用户点 Reject 时调用。
 
@@ -397,6 +506,68 @@ setAccessGate((event, userId, mg, agentGroupId) => {
 
 `canAccessAgentGroup`（`src/modules/permissions/access.ts:21-28`）的判定层级：
 
+<svg viewBox="0 0 760 460" xmlns="http://www.w3.org/2000/svg" class="figure-svg" role="img" aria-label="canAccessAgentGroup five-tier decision ladder from user existence down to membership">
+  <defs>
+    <marker id="ar63" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/></marker>
+  </defs>
+  <rect x="180" y="20" width="280" height="44" rx="6" fill="#ddd6fe" stroke="#7c3aed" stroke-width="1.5"/>
+  <text x="320" y="40" text-anchor="middle" font-size="12" font-weight="600" fill="currentColor">user 存在于 users?</text>
+  <text x="320" y="56" text-anchor="middle" font-size="10" fill="#64748b">access.ts:21</text>
+  <line x1="320" y1="64" x2="320" y2="98" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar63)"/>
+  <text x="328" y="80" font-size="10" fill="#64748b">yes</text>
+  <line x1="460" y1="42" x2="540" y2="42" stroke="#dc2626" stroke-width="1.2" marker-end="url(#ar63)"/>
+  <text x="465" y="34" font-size="10" fill="#dc2626">no</text>
+  <rect x="540" y="20" width="180" height="44" rx="6" fill="#fef2f2" stroke="#dc2626" stroke-width="1.5"/>
+  <text x="630" y="40" text-anchor="middle" font-size="11" font-weight="600" fill="currentColor">deny: unknown_user</text>
+  <text x="630" y="56" text-anchor="middle" font-size="10" fill="#64748b">→ handleUnknownSender</text>
+  <rect x="180" y="100" width="280" height="44" rx="6" fill="#ddd6fe" stroke="#7c3aed" stroke-width="1.5"/>
+  <text x="320" y="120" text-anchor="middle" font-size="12" font-weight="600" fill="currentColor">isOwner(userId)?</text>
+  <text x="320" y="136" text-anchor="middle" font-size="10" fill="#64748b">user_roles role='owner'</text>
+  <line x1="320" y1="144" x2="320" y2="178" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar63)"/>
+  <text x="328" y="160" font-size="10" fill="#64748b">no</text>
+  <line x1="460" y1="122" x2="540" y2="122" stroke="#16a34a" stroke-width="1.2" marker-end="url(#ar63)"/>
+  <text x="465" y="114" font-size="10" fill="#16a34a">yes</text>
+  <rect x="540" y="100" width="180" height="44" rx="6" fill="#f0fdf4" stroke="#16a34a" stroke-width="1.5"/>
+  <text x="630" y="120" text-anchor="middle" font-size="11" font-weight="600" fill="currentColor">allow</text>
+  <text x="630" y="136" text-anchor="middle" font-size="10" fill="#64748b">reason='owner'</text>
+  <rect x="180" y="180" width="280" height="44" rx="6" fill="#ddd6fe" stroke="#7c3aed" stroke-width="1.5"/>
+  <text x="320" y="200" text-anchor="middle" font-size="12" font-weight="600" fill="currentColor">isGlobalAdmin(userId)?</text>
+  <text x="320" y="216" text-anchor="middle" font-size="10" fill="#64748b">user_roles role='global_admin'</text>
+  <line x1="320" y1="224" x2="320" y2="258" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar63)"/>
+  <text x="328" y="240" font-size="10" fill="#64748b">no</text>
+  <line x1="460" y1="202" x2="540" y2="202" stroke="#16a34a" stroke-width="1.2" marker-end="url(#ar63)"/>
+  <text x="465" y="194" font-size="10" fill="#16a34a">yes</text>
+  <rect x="540" y="180" width="180" height="44" rx="6" fill="#f0fdf4" stroke="#16a34a" stroke-width="1.5"/>
+  <text x="630" y="200" text-anchor="middle" font-size="11" font-weight="600" fill="currentColor">allow</text>
+  <text x="630" y="216" text-anchor="middle" font-size="10" fill="#64748b">reason='global_admin'</text>
+  <rect x="180" y="260" width="280" height="44" rx="6" fill="#ddd6fe" stroke="#7c3aed" stroke-width="1.5"/>
+  <text x="320" y="280" text-anchor="middle" font-size="12" font-weight="600" fill="currentColor">isAdminOfAgentGroup?</text>
+  <text x="320" y="296" text-anchor="middle" font-size="10" fill="#64748b">agent_group_members admin=1</text>
+  <line x1="320" y1="304" x2="320" y2="338" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar63)"/>
+  <text x="328" y="320" font-size="10" fill="#64748b">no</text>
+  <line x1="460" y1="282" x2="540" y2="282" stroke="#16a34a" stroke-width="1.2" marker-end="url(#ar63)"/>
+  <text x="465" y="274" font-size="10" fill="#16a34a">yes</text>
+  <rect x="540" y="260" width="180" height="44" rx="6" fill="#f0fdf4" stroke="#16a34a" stroke-width="1.5"/>
+  <text x="630" y="280" text-anchor="middle" font-size="11" font-weight="600" fill="currentColor">allow</text>
+  <text x="630" y="296" text-anchor="middle" font-size="10" fill="#64748b">reason='admin_of_group'</text>
+  <rect x="180" y="340" width="280" height="44" rx="6" fill="#ddd6fe" stroke="#7c3aed" stroke-width="1.5"/>
+  <text x="320" y="360" text-anchor="middle" font-size="12" font-weight="600" fill="currentColor">isMember(userId, agId)?</text>
+  <text x="320" y="376" text-anchor="middle" font-size="10" fill="#64748b">agent_group_members 任意 row</text>
+  <line x1="320" y1="384" x2="320" y2="416" stroke="#dc2626" stroke-width="1.2" marker-end="url(#ar63)"/>
+  <text x="328" y="402" font-size="10" fill="#dc2626">no</text>
+  <line x1="460" y1="362" x2="540" y2="362" stroke="#16a34a" stroke-width="1.2" marker-end="url(#ar63)"/>
+  <text x="465" y="354" font-size="10" fill="#16a34a">yes</text>
+  <rect x="540" y="340" width="180" height="44" rx="6" fill="#f0fdf4" stroke="#16a34a" stroke-width="1.5"/>
+  <text x="630" y="360" text-anchor="middle" font-size="11" font-weight="600" fill="currentColor">allow</text>
+  <text x="630" y="376" text-anchor="middle" font-size="10" fill="#64748b">reason='member'</text>
+  <rect x="180" y="416" width="280" height="36" rx="6" fill="#fef2f2" stroke="#dc2626" stroke-width="1.5"/>
+  <text x="320" y="438" text-anchor="middle" font-size="12" font-weight="700" fill="currentColor">deny: not_member</text>
+</svg>
+<span class="figure-caption">图 R6.3 ｜ canAccessAgentGroup 的 5 级判定阶梯——任一级命中即放行（绿色 allow），全部不命中才走最底层 deny；user 不存在直接走 unknown_user（最常见的 drop 原因）</span>
+
+<details>
+<summary>ASCII 原版</summary>
+
 ```
                 ┌────────────────────┐
                 │ user 存在于 users? │ no → unknown_user
@@ -425,6 +596,8 @@ setAccessGate((event, userId, mg, agentGroupId) => {
                           ▼
                       deny: not_member
 ```
+
+</details>
 
 被拒后 `handleUnknownSender` 根据 `mg.unknown_sender_policy` 分流：
 
@@ -721,6 +894,77 @@ export function wakeContainer(session: Session): Promise<boolean> {
 
 ## 一图总览：从 InboundEvent 到 session
 
+<svg viewBox="0 0 880 760" xmlns="http://www.w3.org/2000/svg" class="figure-svg" role="img" aria-label="end-to-end routeInbound flow from event entry through interceptor, mg lookup, fan-out per agent with engage/access/scope gating, ending in deliverToAgent and wakeContainer">
+  <defs>
+    <marker id="ar64" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/></marker>
+  </defs>
+  <rect x="340" y="20" width="200" height="40" rx="6" fill="#ffedd5" stroke="#ea580c" stroke-width="2"/>
+  <text x="440" y="44" text-anchor="middle" font-size="13" font-weight="700" fill="currentColor">routeInbound(event)</text>
+  <line x1="440" y1="60" x2="440" y2="84" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar64)"/>
+  <rect x="320" y="86" width="240" height="36" rx="4" fill="#ddd6fe" stroke="#7c3aed" stroke-width="1.2"/>
+  <text x="440" y="102" text-anchor="middle" font-size="11" fill="currentColor">messageInterceptor?</text>
+  <text x="440" y="116" text-anchor="middle" font-size="10" fill="#64748b">yes → return (consumed)</text>
+  <line x1="440" y1="122" x2="440" y2="146" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar64)"/>
+  <text x="445" y="138" font-size="10" fill="#64748b">no</text>
+  <rect x="320" y="148" width="240" height="32" rx="4" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1"/>
+  <text x="440" y="168" text-anchor="middle" font-size="11" fill="currentColor">supportsThreads==false → threadId=null</text>
+  <line x1="440" y1="180" x2="440" y2="204" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar64)"/>
+  <rect x="280" y="206" width="320" height="42" rx="6" fill="#ddd6fe" stroke="#7c3aed" stroke-width="1.5"/>
+  <text x="440" y="224" text-anchor="middle" font-size="12" font-weight="600" fill="currentColor">getMessagingGroupWithAgentCount</text>
+  <text x="440" y="240" text-anchor="middle" font-size="10" fill="#64748b">(channelType, platformId) — 一次 SQL JOIN</text>
+  <line x1="380" y1="248" x2="200" y2="284" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar64)"/>
+  <line x1="500" y1="248" x2="680" y2="284" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar64)"/>
+  <text x="240" y="270" font-size="10" fill="#64748b">found==null</text>
+  <text x="600" y="270" font-size="10" fill="#64748b">found!=null, agentCount==0</text>
+  <rect x="60" y="288" width="280" height="100" rx="6" fill="#fef2f2" stroke="#dc2626" stroke-width="1.5"/>
+  <text x="200" y="308" text-anchor="middle" font-size="12" font-weight="600" fill="currentColor">未注册 channel</text>
+  <text x="200" y="326" text-anchor="middle" font-size="10" fill="#64748b">!isMention → return (silent)</text>
+  <text x="200" y="342" text-anchor="middle" font-size="10" fill="#64748b">isMention → auto-create mg</text>
+  <text x="200" y="358" text-anchor="middle" font-size="10" fill="#64748b">policy=request_approval</text>
+  <text x="200" y="374" text-anchor="middle" font-size="10" fill="#64748b">agentCount=0, 落入右侧</text>
+  <line x1="200" y1="388" x2="500" y2="388" stroke="#94a3b8" stroke-width="1.2" stroke-dasharray="3,2" marker-end="url(#ar64)"/>
+  <rect x="540" y="288" width="280" height="100" rx="6" fill="#fef2f2" stroke="#dc2626" stroke-width="1.5"/>
+  <text x="680" y="308" text-anchor="middle" font-size="12" font-weight="600" fill="currentColor">agentCount == 0</text>
+  <text x="680" y="326" text-anchor="middle" font-size="10" fill="#64748b">!isMention | denied_at → drop</text>
+  <text x="680" y="342" text-anchor="middle" font-size="10" fill="#64748b">else:</text>
+  <text x="680" y="358" text-anchor="middle" font-size="10" fill="#64748b">recordDroppedMessage +</text>
+  <text x="680" y="374" text-anchor="middle" font-size="10" fill="#64748b">channelRequestGate (async)</text>
+  <line x1="440" y1="250" x2="440" y2="408" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar64)"/>
+  <text x="448" y="270" font-size="10" fill="#64748b">agentCount&gt;0</text>
+  <rect x="320" y="408" width="240" height="36" rx="4" fill="#ddd6fe" stroke="#7c3aed" stroke-width="1.2"/>
+  <text x="440" y="424" text-anchor="middle" font-size="11" fill="currentColor">senderResolver → userId | null</text>
+  <text x="440" y="438" text-anchor="middle" font-size="10" fill="#64748b">upsert users (side effect)</text>
+  <line x1="440" y1="444" x2="440" y2="468" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar64)"/>
+  <rect x="300" y="470" width="280" height="36" rx="4" fill="#ccfbf1" stroke="#0d9488" stroke-width="1.5"/>
+  <text x="440" y="486" text-anchor="middle" font-size="12" font-weight="600" fill="currentColor">for each agent (ORDER BY priority DESC)</text>
+  <text x="440" y="500" text-anchor="middle" font-size="10" fill="#64748b">fan-out — 每个 agent 独立评估</text>
+  <line x1="440" y1="506" x2="440" y2="530" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar64)"/>
+  <rect x="320" y="532" width="240" height="32" rx="4" fill="#ccfbf1" stroke="#0d9488" stroke-width="1.2"/>
+  <text x="440" y="552" text-anchor="middle" font-size="11" fill="currentColor">evaluateEngage(...)?</text>
+  <line x1="380" y1="564" x2="180" y2="600" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar64)"/>
+  <line x1="500" y1="564" x2="700" y2="600" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar64)"/>
+  <text x="260" y="585" font-size="10" fill="#16a34a">engages=true</text>
+  <text x="580" y="585" font-size="10" fill="#dc2626">engages=false</text>
+  <rect x="40" y="604" width="280" height="64" rx="6" fill="#ccfbf1" stroke="#0d9488" stroke-width="1.5"/>
+  <text x="180" y="622" text-anchor="middle" font-size="11" font-weight="600" fill="currentColor">accessGate + senderScopeGate</text>
+  <text x="180" y="638" text-anchor="middle" font-size="10" fill="#64748b">both allowed → deliver wake=true</text>
+  <text x="180" y="654" text-anchor="middle" font-size="10" fill="#dc2626">denied → drop + requestSenderApproval</text>
+  <rect x="560" y="604" width="280" height="64" rx="6" fill="#fef2f2" stroke="#dc2626" stroke-width="1.5"/>
+  <text x="700" y="622" text-anchor="middle" font-size="11" font-weight="600" fill="currentColor">ignored_message_policy?</text>
+  <text x="700" y="638" text-anchor="middle" font-size="10" fill="#64748b">accumulate → deliver wake=false</text>
+  <text x="700" y="654" text-anchor="middle" font-size="10" fill="#dc2626">drop → silent</text>
+  <line x1="180" y1="668" x2="380" y2="690" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar64)"/>
+  <line x1="700" y1="668" x2="500" y2="690" stroke="#94a3b8" stroke-width="1.2" stroke-dasharray="3,2" marker-end="url(#ar64)"/>
+  <rect x="220" y="692" width="440" height="60" rx="6" fill="#ffedd5" stroke="#ea580c" stroke-width="2"/>
+  <text x="440" y="710" text-anchor="middle" font-size="12" font-weight="700" fill="currentColor">deliverToAgent</text>
+  <text x="440" y="726" text-anchor="middle" font-size="10" fill="#64748b">resolveSession → gateCommand → writeSessionMessage (+attach)</text>
+  <text x="440" y="742" text-anchor="middle" font-size="10" fill="#64748b">if wake: startTypingRefresh → wakeContainer (fire-and-forget)</text>
+</svg>
+<span class="figure-caption">图 R6.4 ｜ routeInbound 端到端总览：橙=入口/最终投递、紫=DB 查询/hook、青=fan-out 与 gate（成功路径）、红=丢弃路径；同一条消息可在 fan-out 循环里分别被 N 个 agent 走出不同结局</span>
+
+<details>
+<summary>ASCII 原版</summary>
+
 ```
                             ┌─────────────────────────┐
                             │   routeInbound(event)   │
@@ -804,6 +1048,8 @@ export function wakeContainer(session: Session): Promise<boolean> {
   if (engagedCount + accumulatedCount === 0)
       recordDroppedMessage('no_agent_engaged')
 ```
+
+</details>
 
 ---
 

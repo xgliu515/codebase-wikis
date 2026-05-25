@@ -15,7 +15,99 @@
 
 ## 5.2 启动顺序总图
 
-先给一张 ASCII 概览，把 `main()` 的 7 个编号步骤画在时间轴上：
+先给一张概览，把 `main()` 的 7 个编号步骤画在时间轴上：
+
+<svg viewBox="0 0 880 720" xmlns="http://www.w3.org/2000/svg" class="figure-svg" role="img" aria-label="NanoClaw host startup sequence: 8 numbered steps from process spawn to NanoClaw running">
+<defs><marker id="ar51" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/></marker></defs>
+<line x1="200" y1="30" x2="200" y2="685" stroke="#cbd5e1" stroke-width="1.5" stroke-dasharray="2,3"/>
+<rect x="100" y="20" width="200" height="38" rx="6" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1"/>
+<text x="200" y="44" text-anchor="middle" font-size="12" font-weight="600" fill="#64748b">(process spawn)</text>
+<text x="20" y="85" font-size="10" fill="#94a3b8">index.ts:67</text>
+<rect x="100" y="68" width="200" height="38" rx="6" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1"/>
+<text x="200" y="92" text-anchor="middle" font-size="11" fill="currentColor">log.info('NanoClaw starting')</text>
+<text x="20" y="142" font-size="10" fill="#94a3b8">index.ts:70</text>
+<circle cx="200" cy="135" r="14" fill="#fef3c7" stroke="#d97706" stroke-width="1.5"/>
+<text x="200" y="139" text-anchor="middle" font-size="11" font-weight="700" fill="currentColor">0</text>
+<rect x="240" y="118" width="220" height="36" rx="6" fill="#fef3c7" stroke="#d97706" stroke-width="1.5"/>
+<text x="350" y="140" text-anchor="middle" font-size="11" font-weight="600" fill="currentColor">enforceStartupBackoff()</text>
+<text x="480" y="140" font-size="10" fill="#64748b">崩溃回路熔断器 + mkdir DATA_DIR</text>
+<text x="20" y="187" font-size="10" fill="#94a3b8">index.ts:73</text>
+<circle cx="200" cy="180" r="14" fill="#ddd6fe" stroke="#7c3aed" stroke-width="1.5"/>
+<text x="200" y="184" text-anchor="middle" font-size="11" font-weight="700" fill="currentColor">1</text>
+<rect x="240" y="163" width="220" height="36" rx="6" fill="#ddd6fe" stroke="#7c3aed" stroke-width="1.5"/>
+<text x="350" y="185" text-anchor="middle" font-size="11" font-weight="600" fill="currentColor">initDb + runMigrations</text>
+<text x="480" y="185" font-size="10" fill="#64748b">中央 v2.db 就绪 (WAL)</text>
+<text x="20" y="232" font-size="10" fill="#94a3b8">index.ts:80</text>
+<circle cx="200" cy="225" r="14" fill="#ddd6fe" stroke="#7c3aed" stroke-width="1.2"/>
+<text x="200" y="229" text-anchor="middle" font-size="11" font-weight="700" fill="currentColor">1b</text>
+<rect x="240" y="208" width="220" height="36" rx="6" fill="#ddd6fe" stroke="#7c3aed" stroke-width="1.2"/>
+<text x="350" y="230" text-anchor="middle" font-size="11" font-weight="600" fill="currentColor">backfillContainerConfigs</text>
+<text x="480" y="230" font-size="10" fill="#64748b">container.json → container_configs</text>
+<text x="20" y="277" font-size="10" fill="#94a3b8">index.ts:83</text>
+<circle cx="200" cy="270" r="14" fill="#ddd6fe" stroke="#7c3aed" stroke-width="1.2"/>
+<text x="200" y="274" text-anchor="middle" font-size="11" font-weight="700" fill="currentColor">1c</text>
+<rect x="240" y="253" width="220" height="36" rx="6" fill="#ddd6fe" stroke="#7c3aed" stroke-width="1.2"/>
+<text x="350" y="275" text-anchor="middle" font-size="11" font-weight="600" fill="currentColor">migrateGroupsToClaudeLocal</text>
+<text x="480" y="275" font-size="10" fill="#64748b">一次性 FS 切换 (idempotent)</text>
+<text x="20" y="322" font-size="10" fill="#94a3b8">index.ts:86</text>
+<circle cx="200" cy="315" r="14" fill="#fed7aa" stroke="#ea580c" stroke-width="1.5"/>
+<text x="200" y="319" text-anchor="middle" font-size="11" font-weight="700" fill="currentColor">2</text>
+<rect x="240" y="298" width="220" height="56" rx="6" fill="#fed7aa" stroke="#ea580c" stroke-width="1.5"/>
+<text x="350" y="318" text-anchor="middle" font-size="11" font-weight="600" fill="currentColor">ensureContainerRuntimeRunning</text>
+<text x="350" y="334" text-anchor="middle" font-size="10" fill="#64748b">docker info (10s timeout)</text>
+<text x="350" y="348" text-anchor="middle" font-size="11" font-weight="600" fill="currentColor">cleanupOrphans</text>
+<text x="480" y="318" font-size="10" fill="#dc2626">失败 → fatal exit</text>
+<text x="480" y="348" font-size="10" fill="#64748b">用 install slug label 回收孤儿</text>
+<text x="20" y="402" font-size="10" fill="#94a3b8">index.ts:90</text>
+<circle cx="200" cy="395" r="14" fill="#bae6fd" stroke="#0ea5e9" stroke-width="1.5"/>
+<text x="200" y="399" text-anchor="middle" font-size="11" font-weight="700" fill="currentColor">3</text>
+<rect x="240" y="378" width="220" height="36" rx="6" fill="#bae6fd" stroke="#0ea5e9" stroke-width="1.5"/>
+<text x="350" y="400" text-anchor="middle" font-size="11" font-weight="600" fill="currentColor">initChannelAdapters</text>
+<text x="480" y="400" font-size="10" fill="#64748b">cli + 已装 channel skill</text>
+<text x="20" y="447" font-size="10" fill="#94a3b8">index.ts:166</text>
+<circle cx="200" cy="440" r="14" fill="#fed7aa" stroke="#ea580c" stroke-width="1.2"/>
+<text x="200" y="444" text-anchor="middle" font-size="11" font-weight="700" fill="currentColor">4</text>
+<rect x="240" y="423" width="220" height="36" rx="6" fill="#fed7aa" stroke="#ea580c" stroke-width="1.2"/>
+<text x="350" y="445" text-anchor="middle" font-size="11" font-weight="600" fill="currentColor">setDeliveryAdapter</text>
+<text x="480" y="445" font-size="10" fill="#64748b">channelType → adapter 反查代理</text>
+<text x="20" y="492" font-size="10" fill="#94a3b8">index.ts:169</text>
+<circle cx="200" cy="485" r="14" fill="#fed7aa" stroke="#ea580c" stroke-width="1.5"/>
+<text x="200" y="489" text-anchor="middle" font-size="11" font-weight="700" fill="currentColor">5</text>
+<rect x="240" y="468" width="220" height="56" rx="6" fill="#fed7aa" stroke="#ea580c" stroke-width="1.5"/>
+<text x="350" y="488" text-anchor="middle" font-size="11" font-weight="600" fill="currentColor">startActiveDeliveryPoll</text>
+<text x="350" y="504" text-anchor="middle" font-size="10" fill="#64748b">100ms · outbound.db</text>
+<text x="350" y="518" text-anchor="middle" font-size="11" font-weight="600" fill="currentColor">startSweepDeliveryPoll</text>
+<text x="480" y="498" font-size="10" fill="#dc2626">⚠ 开始对外发消息</text>
+<text x="20" y="557" font-size="10" fill="#94a3b8">index.ts:174</text>
+<circle cx="200" cy="550" r="14" fill="#fed7aa" stroke="#ea580c" stroke-width="1.2"/>
+<text x="200" y="554" text-anchor="middle" font-size="11" font-weight="700" fill="currentColor">6</text>
+<rect x="240" y="533" width="220" height="36" rx="6" fill="#fed7aa" stroke="#ea580c" stroke-width="1.2"/>
+<text x="350" y="555" text-anchor="middle" font-size="11" font-weight="600" fill="currentColor">startHostSweep</text>
+<text x="480" y="555" font-size="10" fill="#64748b">60s 周期 maintenance</text>
+<text x="20" y="602" font-size="10" fill="#94a3b8">index.ts:178</text>
+<circle cx="200" cy="595" r="14" fill="#fed7aa" stroke="#ea580c" stroke-width="1.5"/>
+<text x="200" y="599" text-anchor="middle" font-size="11" font-weight="700" fill="currentColor">7</text>
+<rect x="240" y="578" width="220" height="36" rx="6" fill="#fed7aa" stroke="#ea580c" stroke-width="1.5"/>
+<text x="350" y="600" text-anchor="middle" font-size="11" font-weight="600" fill="currentColor">startCliServer</text>
+<text x="480" y="600" font-size="10" fill="#dc2626">⚠ 接受 ncl 操作员指令</text>
+<text x="20" y="650" font-size="10" fill="#94a3b8">index.ts:180</text>
+<rect x="100" y="635" width="280" height="40" rx="6" fill="#dcfce7" stroke="#16a34a" stroke-width="1.5"/>
+<text x="240" y="660" text-anchor="middle" font-size="12" font-weight="700" fill="currentColor">log.info('NanoClaw running')</text>
+<text x="400" y="660" font-size="10" fill="#16a34a" font-style="italic">稳态承诺</text>
+<rect x="580" y="20" width="280" height="170" rx="6" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1"/>
+<text x="720" y="42" text-anchor="middle" font-size="11" font-weight="600" fill="currentColor">副作用范围递进</text>
+<text x="595" y="64" font-size="10" fill="#64748b">步骤 0: 只读写 circuit-breaker.json</text>
+<text x="595" y="82" font-size="10" fill="#64748b">步骤 1: 接触中央 DB</text>
+<text x="595" y="100" font-size="10" fill="#64748b">步骤 2: 接触 Docker daemon</text>
+<text x="595" y="118" font-size="10" fill="#64748b">步骤 3: 接触外部网络 (channel)</text>
+<text x="595" y="136" font-size="10" fill="#64748b">步骤 5: 开始向用户发消息</text>
+<text x="595" y="154" font-size="10" fill="#64748b">步骤 7: 接受操作员指令</text>
+<text x="595" y="178" font-size="10" font-style="italic" fill="#16a34a">→ "running" = 全部上线</text>
+</svg>
+<span class="figure-caption">图 R5.1 ｜ main() 启动顺序时间轴，从 process spawn 到 NanoClaw running。0 步只动文件、1 步只动 DB、2 步才接 Docker、3-5 步开始对外、7 步最后开 ncl socket——副作用按由内而外的顺序逐步开放。</span>
+
+<details>
+<summary>ASCII 原版</summary>
 
 ```
                           (process spawn)
@@ -61,6 +153,8 @@
                                     ▼
    index.ts:180     log.info('NanoClaw running')
 ```
+
+</details>
 
 注意每一步的副作用范围：第 0 步**只读/写一个文件**（`data/circuit-breaker.json`），第 1 步开始接触中央 DB，第 2 步开始接触 Docker，第 3 步开始接触外部网络（channel adapter 连接 Discord/Slack/Telegram 等），第 5 步开始向**用户**投递消息，第 7 步开始接受**操作员**命令。`NanoClaw running` 这一行是承诺：这之后进入稳态，所有外部副作用通道都已上线。
 
@@ -864,6 +958,60 @@ process.on('SIGINT', () => shutdown('SIGINT'));
 
 关闭顺序与启动顺序**几乎逆向但又不完全是**——逐项解释：
 
+<svg viewBox="0 0 880 540" xmlns="http://www.w3.org/2000/svg" class="figure-svg" role="img" aria-label="NanoClaw host shutdown sequence: 6 steps from signal to process exit">
+<defs><marker id="ar52" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/></marker></defs>
+<rect x="280" y="20" width="320" height="48" rx="6" fill="#fef2f2" stroke="#dc2626" stroke-width="1.5"/>
+<text x="440" y="42" text-anchor="middle" font-size="13" font-weight="700" fill="currentColor">信号到达 (SIGTERM | SIGINT)</text>
+<text x="440" y="60" text-anchor="middle" font-size="10" fill="#64748b">process.on(...) → shutdown(signal)</text>
+<line x1="440" y1="68" x2="440" y2="96" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar52)"/>
+<circle cx="180" cy="120" r="14" fill="#fef3c7" stroke="#d97706" stroke-width="1.5"/>
+<text x="180" y="124" text-anchor="middle" font-size="11" font-weight="700" fill="currentColor">1</text>
+<rect x="220" y="100" width="440" height="40" rx="6" fill="#fef3c7" stroke="#d97706" stroke-width="1.5"/>
+<text x="240" y="120" font-size="12" font-weight="600" fill="currentColor">getShutdownCallbacks().forEach(cb =&gt; await cb())</text>
+<text x="240" y="134" font-size="10" fill="#64748b">每个 module 自己软关闭（typing 撤回 indicator 等）</text>
+<text x="690" y="124" font-size="10" fill="#16a34a" font-style="italic">必须在 adapter 断开前</text>
+<line x1="440" y1="140" x2="440" y2="168" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar52)"/>
+<circle cx="180" cy="192" r="14" fill="#fed7aa" stroke="#ea580c" stroke-width="1.5"/>
+<text x="180" y="196" text-anchor="middle" font-size="11" font-weight="700" fill="currentColor">2</text>
+<rect x="220" y="172" width="440" height="40" rx="6" fill="#fed7aa" stroke="#ea580c" stroke-width="1.5"/>
+<text x="240" y="192" font-size="12" font-weight="600" fill="currentColor">stopDeliveryPolls()</text>
+<text x="240" y="206" font-size="10" fill="#64748b">不再投递新 outbound</text>
+<text x="690" y="196" font-size="10" fill="#64748b">先停最 user-facing 的循环</text>
+<line x1="440" y1="212" x2="440" y2="240" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar52)"/>
+<circle cx="180" cy="264" r="14" fill="#fed7aa" stroke="#ea580c" stroke-width="1.2"/>
+<text x="180" y="268" text-anchor="middle" font-size="11" font-weight="700" fill="currentColor">3</text>
+<rect x="220" y="244" width="440" height="40" rx="6" fill="#fed7aa" stroke="#ea580c" stroke-width="1.2"/>
+<text x="240" y="264" font-size="12" font-weight="600" fill="currentColor">stopHostSweep()</text>
+<text x="240" y="278" font-size="10" fill="#64748b">不再 60s maintenance</text>
+<line x1="440" y1="284" x2="440" y2="312" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar52)"/>
+<circle cx="180" cy="336" r="14" fill="#fed7aa" stroke="#ea580c" stroke-width="1.5"/>
+<text x="180" y="340" text-anchor="middle" font-size="11" font-weight="700" fill="currentColor">4</text>
+<rect x="220" y="316" width="440" height="40" rx="6" fill="#fed7aa" stroke="#ea580c" stroke-width="1.5"/>
+<text x="240" y="336" font-size="12" font-weight="600" fill="currentColor">await stopCliServer()</text>
+<text x="240" y="350" font-size="10" fill="#64748b">关 ncl socket — 不再接 ncl 命令</text>
+<text x="690" y="340" font-size="10" fill="#64748b">先于 channel adapter</text>
+<line x1="440" y1="356" x2="440" y2="384" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar52)"/>
+<circle cx="180" cy="408" r="14" fill="#bae6fd" stroke="#0ea5e9" stroke-width="1.5"/>
+<text x="180" y="412" text-anchor="middle" font-size="11" font-weight="700" fill="currentColor">5</text>
+<rect x="220" y="388" width="440" height="48" rx="6" fill="#bae6fd" stroke="#0ea5e9" stroke-width="1.5"/>
+<text x="240" y="408" font-size="12" font-weight="600" fill="currentColor">await teardownChannelAdapters()  // try { ... }</text>
+<text x="240" y="424" font-size="10" fill="#64748b">断开 Discord/Slack/Telegram 等连接</text>
+<text x="690" y="416" font-size="10" fill="#dc2626">即使抛错也保证下一步执行</text>
+<line x1="440" y1="436" x2="440" y2="464" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar52)"/>
+<circle cx="180" cy="488" r="14" fill="#dcfce7" stroke="#16a34a" stroke-width="1.5"/>
+<text x="180" y="492" text-anchor="middle" font-size="11" font-weight="700" fill="currentColor">6</text>
+<rect x="220" y="468" width="440" height="48" rx="6" fill="#dcfce7" stroke="#16a34a" stroke-width="1.5"/>
+<text x="240" y="488" font-size="12" font-weight="600" fill="currentColor">resetCircuitBreaker()  // finally</text>
+<text x="240" y="504" font-size="10" fill="#64748b">删 circuit-breaker.json → 下次 attempt 归 1</text>
+<text x="690" y="496" font-size="10" fill="#16a34a">SIGTERM ≠ 崩溃</text>
+<line x1="440" y1="516" x2="440" y2="528" stroke="#dc2626" stroke-width="1.5" marker-end="url(#ar52)"/>
+<text x="440" y="538" text-anchor="middle" font-size="11" font-weight="700" fill="#dc2626">process.exit(0)</text>
+</svg>
+<span class="figure-caption">图 R5.2 ｜ shutdown 流程 6 步：先跑 module 软关闭、停 polling、关 ncl 入口、最后断 channel adapter；resetCircuitBreaker 在 finally 中以保证 SIGTERM 不被算作崩溃。host 不主动 kill container，留作下次启动的孤儿。</span>
+
+<details>
+<summary>ASCII 原版</summary>
+
 ```
    信号到达 (SIGTERM 或 SIGINT)
         │
@@ -888,6 +1036,8 @@ process.on('SIGINT', () => shutdown('SIGINT'));
         ▼
    process.exit(0)
 ```
+
+</details>
 
 ### 5.14.1 为什么这个顺序
 

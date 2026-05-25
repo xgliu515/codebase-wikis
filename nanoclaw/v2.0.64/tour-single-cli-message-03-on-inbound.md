@@ -129,6 +129,42 @@ export async function initChannelAdapters(setupFn: ...): Promise<void> {
 
 所以这一步实际发生的事情，跟"封装良好的 framework 路由层"那种想象完全不同：
 
+<svg viewBox="0 0 760 280" xmlns="http://www.w3.org/2000/svg" class="figure-svg" role="img" aria-label="Diagram showing the CLI adapter calling the onInbound closure which forwards to routeInbound — no registry, no event bus in between">
+  <defs>
+    <marker id="ar31" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/></marker>
+  </defs>
+  <rect x="30" y="60" width="200" height="100" rx="8" fill="#0d9488" opacity="0.15" stroke="#0d9488" stroke-width="1.5"/>
+  <text x="130" y="84" text-anchor="middle" font-size="13" font-weight="700" fill="currentColor">CLI adapter</text>
+  <text x="130" y="104" text-anchor="middle" font-size="11" fill="#64748b">handleLine()</text>
+  <text x="130" y="122" text-anchor="middle" font-size="11" fill="#64748b">持有 config</text>
+  <text x="130" y="146" text-anchor="middle" font-size="10" fill="#94a3b8">src/channels/cli.ts:181</text>
+  <line x1="232" y1="110" x2="316" y2="110" stroke="#94a3b8" stroke-width="1.4" marker-end="url(#ar31)"/>
+  <text x="274" y="100" text-anchor="middle" font-size="10" fill="#64748b">config.onInbound(</text>
+  <text x="274" y="124" text-anchor="middle" font-size="10" fill="#64748b">platformId, threadId, msg)</text>
+  <rect x="320" y="60" width="220" height="100" rx="8" fill="#ea580c" opacity="0.15" stroke="#ea580c" stroke-width="1.5"/>
+  <text x="430" y="84" text-anchor="middle" font-size="13" font-weight="700" fill="currentColor">onInbound wrapper</text>
+  <text x="430" y="104" text-anchor="middle" font-size="11" fill="#64748b">inject adapter.channelType</text>
+  <text x="430" y="120" text-anchor="middle" font-size="11" fill="#64748b">JSON.stringify(content)</text>
+  <text x="430" y="136" text-anchor="middle" font-size="11" fill="#64748b">.catch(err =&gt; log.error)</text>
+  <text x="430" y="152" text-anchor="middle" font-size="10" fill="#94a3b8">src/index.ts:92</text>
+  <line x1="430" y1="160" x2="430" y2="200" stroke="#94a3b8" stroke-width="1.4" marker-end="url(#ar31)"/>
+  <text x="500" y="184" text-anchor="middle" font-size="10" fill="#64748b">routeInbound(event)</text>
+  <rect x="320" y="200" width="220" height="60" rx="8" fill="#7c3aed" opacity="0.18" stroke="#7c3aed" stroke-width="1.5"/>
+  <text x="430" y="222" text-anchor="middle" font-size="13" font-weight="700" fill="currentColor">routeInbound()</text>
+  <text x="430" y="240" text-anchor="middle" font-size="10" fill="#94a3b8">src/router.ts:158</text>
+  <rect x="570" y="80" width="170" height="64" rx="6" fill="#fef2f2" stroke="#dc2626" stroke-width="1.2" stroke-dasharray="4,3"/>
+  <text x="655" y="100" text-anchor="middle" font-size="11" font-weight="600" fill="#dc2626">朴素想象：</text>
+  <text x="655" y="118" text-anchor="middle" font-size="10" fill="#64748b">registry 查表 + 事件总线</text>
+  <text x="655" y="134" text-anchor="middle" font-size="10" fill="#64748b">+ pub/sub fan-out</text>
+  <text x="655" y="170" text-anchor="middle" font-size="11" font-weight="600" fill="#16a34a">实际：</text>
+  <text x="655" y="186" text-anchor="middle" font-size="10" fill="#64748b">同一 await 调用栈</text>
+  <text x="655" y="200" text-anchor="middle" font-size="10" fill="#64748b">零中间层</text>
+</svg>
+<span class="figure-caption">图 T1.2 ｜ adapter → router 是一个 thin closure 调用链：channel-registry 不参与路由，wrapper 只做 channelType 注入 + content stringify + 错误隔离。</span>
+
+<details>
+<summary>ASCII 原版</summary>
+
 ```
 +----------------+                  +-------------------+
 | CLI adapter    |    closure call  | onInbound wrapper |
@@ -143,6 +179,8 @@ export async function initChannelAdapters(setupFn: ...): Promise<void> {
                                     | routeInbound()    |
                                     +-------------------+
 ```
+
+</details>
 
 中间没有 registry 查表、没有事件总线、没有队列。从 `handleLine` 到 `routeInbound` 是 **同一个 await 调用栈**（同步堆栈 + Promise chain）。
 

@@ -61,6 +61,79 @@ NanoClaw 选择**结构化喂 + 增量委托给 SDK** 的双策略：当前 turn
 
 ## 5. NanoClaw 的做法
 
+<svg viewBox="0 0 820 380" xmlns="http://www.w3.org/2000/svg" class="figure-svg" role="img" aria-label="Formatter splits batch into current-turn XML and lets SDK resume history via continuation">
+  <defs>
+    <marker id="fm-ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/></marker>
+  </defs>
+  <text x="410" y="20" font-size="13" font-weight="700" fill="currentColor" text-anchor="middle">Two-track context: current-turn XML (formatter) + history (SDK resume)</text>
+  <rect x="20" y="44" width="380" height="316" rx="6" fill="#fef3c7" stroke="#ea580c" stroke-width="1.2"/>
+  <text x="210" y="62" font-size="12" font-weight="700" fill="#9a3412" text-anchor="middle">Track A · formatter.ts (this turn only)</text>
+  <rect x="34" y="76" width="352" height="38" rx="4" fill="#ffffff" stroke="#fcd34d"/>
+  <text x="210" y="92" font-size="11" font-weight="600" fill="currentColor" text-anchor="middle">normalMessages (this batch)</text>
+  <text x="210" y="106" font-size="10" fill="#64748b" text-anchor="middle">[{ id, seq=2, kind:chat, content:'{"text":"ping",...}' }]</text>
+  <text x="210" y="130" font-size="11" font-weight="600" fill="currentColor" text-anchor="middle">↓ formatMessagesWithCommands</text>
+  <rect x="34" y="142" width="170" height="50" rx="4" fill="#fef2f2" stroke="#dc2626" stroke-width="1.2"/>
+  <text x="119" y="160" font-size="11" font-weight="600" fill="currentColor" text-anchor="middle">/cost · /compact · …</text>
+  <text x="119" y="174" font-size="10" fill="#64748b" text-anchor="middle">raw text (NOT wrapped)</text>
+  <text x="119" y="186" font-size="9" fill="#94a3b8" text-anchor="middle">SDK requires bare 1st input</text>
+  <rect x="216" y="142" width="170" height="50" rx="4" fill="#ecfdf5" stroke="#16a34a" stroke-width="1.2"/>
+  <text x="301" y="160" font-size="11" font-weight="600" fill="currentColor" text-anchor="middle">normalBatch</text>
+  <text x="301" y="174" font-size="10" fill="#64748b" text-anchor="middle">→ formatMessages()</text>
+  <text x="301" y="186" font-size="9" fill="#94a3b8" text-anchor="middle">our 'ping' goes here</text>
+  <rect x="34" y="208" width="352" height="138" rx="4" fill="#f8fafc" stroke="#cbd5e1" stroke-dasharray="3,2"/>
+  <text x="210" y="226" font-size="11" font-weight="700" fill="currentColor" text-anchor="middle">Output prompt string</text>
+  <text x="44" y="246" font-size="10" font-family="monospace" fill="#0d9488">&lt;context timezone="America/Los_Angeles" /&gt;</text>
+  <text x="44" y="262" font-size="10" font-family="monospace" fill="#7c3aed">&lt;message id="2" from="kira-cli"</text>
+  <text x="44" y="276" font-size="10" font-family="monospace" fill="#7c3aed">         sender="cli" time="..."&gt;</text>
+  <text x="44" y="290" font-size="10" font-family="monospace" fill="#ea580c">  ping</text>
+  <text x="44" y="304" font-size="10" font-family="monospace" fill="#7c3aed">&lt;/message&gt;</text>
+  <text x="210" y="324" font-size="9" fill="#94a3b8" text-anchor="middle">NO platform_id / channel_type / thread_id leak to agent</text>
+  <text x="210" y="338" font-size="9" fill="#94a3b8" text-anchor="middle">'from' is reverse-mapped destination name</text>
+  <rect x="420" y="44" width="380" height="316" rx="6" fill="#ecfdf5" stroke="#0d9488" stroke-width="1.2"/>
+  <text x="610" y="62" font-size="12" font-weight="700" fill="#0f766e" text-anchor="middle">Track B · history (delegated to SDK)</text>
+  <rect x="434" y="80" width="352" height="44" rx="4" fill="#ffffff" stroke="#5eead4"/>
+  <text x="610" y="98" font-size="11" font-weight="600" fill="currentColor" text-anchor="middle">continuation = session_id (from session_state)</text>
+  <text x="610" y="114" font-size="10" fill="#64748b" text-anchor="middle">undefined on first turn · else passed as resume:</text>
+  <text x="610" y="138" font-size="11" font-weight="600" fill="currentColor" text-anchor="middle">↓ provider.query({ prompt, continuation, ... })</text>
+  <rect x="434" y="152" width="352" height="100" rx="4" fill="#ffffff" stroke="#5eead4"/>
+  <text x="610" y="170" font-size="11" font-weight="700" fill="currentColor" text-anchor="middle">Claude Agent SDK (cli.js child)</text>
+  <text x="610" y="190" font-size="10" fill="#64748b" text-anchor="middle">reads ~/.claude/.../sess-id.jsonl transcript</text>
+  <text x="610" y="206" font-size="10" fill="#64748b" text-anchor="middle">incrementally restores in-memory state</text>
+  <text x="610" y="222" font-size="10" fill="#0d9488" text-anchor="middle" font-weight="600">prompt cache hit on whole prefix</text>
+  <text x="610" y="240" font-size="10" fill="#94a3b8" text-anchor="middle">5min TTL · keyed on prefix hash</text>
+  <rect x="434" y="266" width="352" height="80" rx="4" fill="#fef9c3" stroke="#fbbf24"/>
+  <text x="610" y="284" font-size="11" font-weight="700" fill="currentColor" text-anchor="middle">Why this split?</text>
+  <text x="610" y="300" font-size="10" fill="#64748b" text-anchor="middle">naive: rebuild full transcript each turn</text>
+  <text x="610" y="314" font-size="10" fill="#dc2626" text-anchor="middle">→ cache miss every time · billed full prefix · token bloat</text>
+  <text x="610" y="328" font-size="10" fill="#16a34a" text-anchor="middle">nanoclaw: DB stores facts · SDK owns evolution</text>
+  <line x1="400" y1="200" x2="430" y2="200" stroke="#7c3aed" stroke-width="1.2" stroke-dasharray="3,2" marker-end="url(#fm-ar)"/>
+  <text x="415" y="194" font-size="9" fill="#7c3aed" text-anchor="middle">merge at SDK</text>
+</svg>
+<span class="figure-caption">图 T1.22 ｜ Formatter 双轨：Track A 把"本轮 batch"翻成结构化 XML（含 context+message，过滤 host 路由字段）；Track B 把"历史"完全委托给 SDK 通过 `resume: continuation` 增量恢复，保住 prompt cache。</span>
+
+<details>
+<summary>ASCII 原版</summary>
+
+```
+Track A: this-turn batch                  Track B: history
+────────────────────────                  ──────────────────
+normalMessages                            continuation = session_id
+   │                                          (from session_state)
+   ▼                                              │
+formatMessagesWithCommands                       ▼
+   ├─ /cost /compact → raw text             provider.query({
+   └─ chat batch → formatMessages()           prompt, continuation, ...
+            │                                })
+            ▼                                       │
+    <context tz="..."/>                            ▼
+    <message id=2 from=kira-cli                Claude SDK reads
+       sender=cli time=...>ping</message>        sess-id.jsonl
+            │                                  cache-hit on prefix
+            └─────────► merged at SDK ◄──────────────
+```
+
+</details>
+
 [`formatMessagesWithCommands(keep, true)`](https://github.com/nanocoai/nanoclaw/blob/0683c6ec589ec0df74c2a3d99f9544127317b490/container/agent-runner/src/poll-loop.ts#L228) 是 entry，干两件事：分流 slash command + 把其余 normal batch 交给 [`formatMessages()`](https://github.com/nanocoai/nanoclaw/blob/0683c6ec589ec0df74c2a3d99f9544127317b490/container/agent-runner/src/formatter.ts#L129)。
 
 **5.1 Slash command 分流**：[`poll-loop.ts:230-253`](https://github.com/nanocoai/nanoclaw/blob/0683c6ec589ec0df74c2a3d99f9544127317b490/container/agent-runner/src/poll-loop.ts#L230)。对每条 chat 消息调 `categorizeMessage(msg)` ([`formatter.ts:35-56`](https://github.com/nanocoai/nanoclaw/blob/0683c6ec589ec0df74c2a3d99f9544127317b490/container/agent-runner/src/formatter.ts#L35))，如果是 `passthrough` / `admin` category，就先 flush 已积累的 normal batch，再把 raw 文本（不包 XML）push 进 parts。这是因为 Claude Code SDK 只在 prompt 的"第一个 input"是裸 `/cost` 时才把它当命令 dispatch；包了 XML 它就只是文本。本 trace 'ping' 不以 `/` 开头，category 是 `none`，落进 normalBatch。

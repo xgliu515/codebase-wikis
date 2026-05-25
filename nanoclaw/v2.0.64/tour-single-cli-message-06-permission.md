@@ -108,6 +108,50 @@ export function canAccessAgentGroup(userId: string, agentGroupId: string): Acces
 
 5 个 `is*` 查询都是 indexed lookup（`user_roles.user_id` + `agent_group_members.PK` + `users.id` PK），全部 `LIMIT 1`（`src/modules/permissions/db/user-roles.ts:36-55`），最差情况 5 次 O(log n) 查询。owner 命中后立刻 short-circuit——你日常聊天每次消息只会查 1-2 次。
 
+<svg viewBox="0 0 760 360" xmlns="http://www.w3.org/2000/svg" class="figure-svg" role="img" aria-label="Five-tier access decision ladder with channel-level short-circuit; CLI ping skips all five tiers thanks to unknown_sender_policy=public">
+  <defs>
+    <marker id="ar61" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/></marker>
+  </defs>
+  <rect x="20" y="20" width="260" height="56" rx="8" fill="#0ea5e9" opacity="0.15" stroke="#0ea5e9" stroke-width="1.5"/>
+  <text x="150" y="42" text-anchor="middle" font-size="12" font-weight="700" fill="currentColor">channel 级 short-circuit</text>
+  <text x="150" y="60" text-anchor="middle" font-size="10" fill="#64748b">mg.unknown_sender_policy === 'public'</text>
+  <text x="150" y="72" text-anchor="middle" font-size="10" fill="#94a3b8">permissions/index.ts:173</text>
+  <line x1="280" y1="48" x2="496" y2="48" stroke="#ea580c" stroke-width="1.6" marker-end="url(#ar61)"/>
+  <text x="388" y="40" text-anchor="middle" font-size="10" font-weight="600" fill="#ea580c">CLI ping 命中 → allowed</text>
+  <rect x="500" y="20" width="240" height="56" rx="8" fill="#fed7aa" stroke="#ea580c" stroke-width="1.5"/>
+  <text x="620" y="42" text-anchor="middle" font-size="12" font-weight="700" fill="currentColor">{ allowed: true }</text>
+  <text x="620" y="60" text-anchor="middle" font-size="10" fill="#64748b">不查 user_roles / members</text>
+  <line x1="150" y1="76" x2="150" y2="100" stroke="#cbd5e1" stroke-dasharray="3,3" stroke-width="1"/>
+  <text x="380" y="95" text-anchor="middle" font-size="10" fill="#94a3b8">─ 否则进 canAccessAgentGroup 5 级 ─</text>
+  <rect x="60" y="110" width="640" height="40" rx="6" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1"/>
+  <circle cx="92" cy="130" r="12" fill="#7c3aed" opacity="0.2" stroke="#7c3aed" stroke-width="1.2"/>
+  <text x="92" y="134" text-anchor="middle" font-size="11" font-weight="700" fill="currentColor">1</text>
+  <text x="220" y="128" font-size="11" font-weight="600" fill="currentColor">getUser(userId) 存在？</text>
+  <text x="220" y="142" font-size="10" fill="#64748b">否 → unknown_user / handleUnknownSender</text>
+  <rect x="60" y="160" width="640" height="40" rx="6" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1"/>
+  <circle cx="92" cy="180" r="12" fill="#7c3aed" opacity="0.2" stroke="#7c3aed" stroke-width="1.2"/>
+  <text x="92" y="184" text-anchor="middle" font-size="11" font-weight="700" fill="currentColor">2</text>
+  <text x="220" y="178" font-size="11" font-weight="600" fill="currentColor">isOwner(userId)？</text>
+  <text x="220" y="192" font-size="10" fill="#64748b">user_roles.role='owner' AND agent_group_id IS NULL</text>
+  <rect x="60" y="210" width="640" height="40" rx="6" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1"/>
+  <circle cx="92" cy="230" r="12" fill="#7c3aed" opacity="0.2" stroke="#7c3aed" stroke-width="1.2"/>
+  <text x="92" y="234" text-anchor="middle" font-size="11" font-weight="700" fill="currentColor">3</text>
+  <text x="220" y="228" font-size="11" font-weight="600" fill="currentColor">isGlobalAdmin(userId)？</text>
+  <text x="220" y="242" font-size="10" fill="#64748b">role='admin' AND agent_group_id IS NULL</text>
+  <rect x="60" y="260" width="640" height="40" rx="6" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1"/>
+  <circle cx="92" cy="280" r="12" fill="#7c3aed" opacity="0.2" stroke="#7c3aed" stroke-width="1.2"/>
+  <text x="92" y="284" text-anchor="middle" font-size="11" font-weight="700" fill="currentColor">4</text>
+  <text x="220" y="278" font-size="11" font-weight="600" fill="currentColor">isAdminOfAgentGroup(userId, ag)？</text>
+  <text x="220" y="292" font-size="10" fill="#64748b">scoped admin 行</text>
+  <rect x="60" y="310" width="640" height="40" rx="6" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1"/>
+  <circle cx="92" cy="330" r="12" fill="#7c3aed" opacity="0.2" stroke="#7c3aed" stroke-width="1.2"/>
+  <text x="92" y="334" text-anchor="middle" font-size="11" font-weight="700" fill="currentColor">5</text>
+  <text x="220" y="328" font-size="11" font-weight="600" fill="currentColor">isMember(userId, ag)？</text>
+  <text x="220" y="342" font-size="10" fill="#64748b">否 → not_member / handleUnknownSender</text>
+</svg>
+<span class="figure-caption">图 T1.4 ｜ permissions 模块的判定阶梯：channel 级 short-circuit 优先（CLI ping 在这就出去），否则进 canAccessAgentGroup 的 5 级 indexed lookup，命中即 allow。</span>
+
+
 #### Access gate 在 router 里怎么用
 
 permissions 模块在 `src/modules/permissions/index.ts:173-191` 注册的 gate 实现的执行序：

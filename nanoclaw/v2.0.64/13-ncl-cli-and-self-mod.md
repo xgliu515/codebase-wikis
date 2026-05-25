@@ -99,6 +99,77 @@ admin 需要随时改这些东西：
 
 ### 3. 总体架构
 
+<svg viewBox="0 0 860 560" xmlns="http://www.w3.org/2000/svg" class="figure-svg" role="img" aria-label="ncl architecture: admin shell uses unix socket; container uses outbound/inbound DB transport; both reach the same dispatcher and v2.db">
+  <defs>
+    <marker id="r13a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/></marker>
+  </defs>
+  <rect x="20" y="14" width="820" height="296" rx="8" fill="#ecfeff" stroke="#0d9488" stroke-width="1.5"/>
+  <text x="34" y="34" font-size="13" font-weight="700" fill="#0d9488">host process (Node, sole writer of v2.db)</text>
+  <rect x="40" y="46" width="120" height="38" rx="5" fill="#e0f2fe" stroke="#0ea5e9" stroke-width="1.5"/>
+  <text x="100" y="62" font-size="11" font-weight="600" text-anchor="middle" fill="currentColor">admin shell</text>
+  <text x="100" y="78" font-size="10" text-anchor="middle" fill="#64748b">bin/ncl</text>
+  <rect x="200" y="46" width="160" height="38" rx="5" fill="#ffffff" stroke="#0d9488" stroke-width="1"/>
+  <text x="280" y="62" font-size="11" font-weight="600" text-anchor="middle" fill="currentColor">data/ncl.sock</text>
+  <text x="280" y="78" font-size="10" text-anchor="middle" fill="#dc2626">UDS, chmod 0600</text>
+  <rect x="400" y="46" width="160" height="38" rx="5" fill="#ffffff" stroke="#0d9488" stroke-width="1"/>
+  <text x="480" y="62" font-size="11" font-weight="600" text-anchor="middle" fill="currentColor">socket-server.ts</text>
+  <text x="480" y="78" font-size="10" text-anchor="middle" fill="#64748b">ctx.caller = 'host'</text>
+  <line x1="160" y1="65" x2="200" y2="65" stroke="#0ea5e9" stroke-width="1.5" marker-end="url(#r13a)"/>
+  <line x1="360" y1="65" x2="400" y2="65" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#r13a)"/>
+  <rect x="40" y="190" width="160" height="38" rx="5" fill="#ffffff" stroke="#0d9488" stroke-width="1"/>
+  <text x="120" y="206" font-size="11" font-weight="600" text-anchor="middle" fill="currentColor">delivery.ts</text>
+  <text x="120" y="222" font-size="10" text-anchor="middle" fill="#64748b">poll outbound.db</text>
+  <rect x="40" y="240" width="160" height="38" rx="5" fill="#ffffff" stroke="#0d9488" stroke-width="1"/>
+  <text x="120" y="256" font-size="11" font-weight="600" text-anchor="middle" fill="currentColor">cli_request action</text>
+  <text x="120" y="272" font-size="10" text-anchor="middle" fill="#64748b">ctx.caller = 'agent'</text>
+  <line x1="120" y1="228" x2="120" y2="240" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#r13a)"/>
+  <rect x="280" y="118" width="280" height="46" rx="6" fill="#fed7aa" stroke="#ea580c" stroke-width="1.5"/>
+  <text x="420" y="138" font-size="13" font-weight="700" text-anchor="middle" fill="currentColor">dispatch.ts</text>
+  <text x="420" y="155" font-size="10" text-anchor="middle" fill="#64748b">single router for both transports</text>
+  <line x1="480" y1="84" x2="445" y2="118" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#r13a)"/>
+  <line x1="200" y1="259" x2="395" y2="164" stroke="#ea580c" stroke-width="1.2" marker-end="url(#r13a)"/>
+  <rect x="610" y="118" width="220" height="46" rx="6" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+  <text x="720" y="138" font-size="11" font-weight="600" text-anchor="middle" fill="currentColor">registry</text>
+  <text x="720" y="155" font-size="10" text-anchor="middle" fill="#64748b">CommandDef map</text>
+  <line x1="560" y1="141" x2="610" y2="141" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#r13a)"/>
+  <rect x="220" y="190" width="610" height="100" rx="6" fill="#fff7ed" stroke="#cbd5e1" stroke-width="1"/>
+  <text x="234" y="208" font-size="11" font-weight="600" fill="currentColor">resources/ (each calls registerResource)</text>
+  <text x="234" y="226" font-size="10" fill="#64748b">groups | wirings | users | roles | members | destinations | sessions | approvals | ...</text>
+  <rect x="240" y="234" width="270" height="46" rx="5" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+  <text x="375" y="252" font-size="11" font-weight="600" text-anchor="middle" fill="currentColor">crud.ts</text>
+  <text x="375" y="268" font-size="10" text-anchor="middle" fill="#64748b">generic list/get/create/update/delete</text>
+  <rect x="540" y="234" width="270" height="46" rx="5" fill="#f5f3ff" stroke="#7c3aed" stroke-width="1.5"/>
+  <text x="675" y="252" font-size="11" font-weight="600" text-anchor="middle" fill="#7c3aed">data/v2.db (better-sqlite3)</text>
+  <text x="675" y="268" font-size="10" text-anchor="middle" fill="#64748b">unique writer = host process</text>
+  <line x1="510" y1="257" x2="540" y2="257" stroke="#7c3aed" stroke-width="1.2" marker-end="url(#r13a)"/>
+  <rect x="20" y="324" width="820" height="50" rx="8" fill="#f5f3ff" stroke="#7c3aed" stroke-width="1.5"/>
+  <text x="34" y="344" font-size="12" font-weight="700" fill="#7c3aed">data/v2-sessions/&lt;sid&gt;/</text>
+  <text x="220" y="344" font-size="11" fill="currentColor">inbound.db (host → container)</text>
+  <text x="500" y="344" font-size="11" fill="currentColor">outbound.db (container → host)</text>
+  <text x="34" y="362" font-size="10" fill="#64748b">cross-mount transport; journal_mode = DELETE (no WAL)</text>
+  <line x1="120" y1="278" x2="120" y2="324" stroke="#7c3aed" stroke-width="1.2" stroke-dasharray="3,2" marker-end="url(#r13a)"/>
+  <text x="130" y="304" font-size="10" fill="#7c3aed">write cli_response to inbound.db (trigger=0)</text>
+  <rect x="20" y="388" width="820" height="160" rx="8" fill="#fff7ed" stroke="#ea580c" stroke-width="1.5"/>
+  <text x="34" y="408" font-size="13" font-weight="700" fill="#ea580c">container &lt;sid&gt; (Bun)</text>
+  <rect x="40" y="420" width="380" height="62" rx="5" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+  <text x="50" y="438" font-size="11" font-weight="600" fill="currentColor">ncl (bun, standalone)</text>
+  <text x="50" y="454" font-size="10" fill="#64748b">write cli_request → outbound.db</text>
+  <text x="50" y="468" font-size="10" fill="#64748b">poll inbound.db every 500ms (LIKE requestId)</text>
+  <rect x="440" y="420" width="380" height="62" rx="5" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+  <text x="450" y="438" font-size="11" font-weight="600" fill="currentColor">MCP tools self-mod</text>
+  <text x="450" y="454" font-size="10" fill="#64748b">install_packages → outbound.db</text>
+  <text x="450" y="468" font-size="10" fill="#64748b">add_mcp_server → outbound.db (fire-and-forget)</text>
+  <line x1="230" y1="482" x2="230" y2="510" stroke="#ea580c" stroke-width="1.2" stroke-dasharray="3,2" marker-end="url(#r13a)"/>
+  <line x1="630" y1="482" x2="630" y2="510" stroke="#ea580c" stroke-width="1.2" stroke-dasharray="3,2" marker-end="url(#r13a)"/>
+  <text x="240" y="500" font-size="10" fill="#ea580c">write kind='system' frame</text>
+  <text x="640" y="500" font-size="10" fill="#ea580c">write self-mod request</text>
+  <text x="34" y="538" font-size="10" fill="#64748b">no v2.db mount — all admin-plane writes must round-trip via host</text>
+</svg>
+<span class="figure-caption">图 R13.1 ｜ ncl 双 transport 架构：admin shell 走 UDS、容器走 inbound/outbound DB，两条路汇到同一个 dispatch.ts + registry + v2.db。</span>
+
+<details>
+<summary>ASCII 原版</summary>
+
 ```
 ┌────────────────────────────────────────────────────────────────┐
 │                     host process                                │
@@ -144,6 +215,8 @@ admin 需要随时改这些东西：
 └─────────────────────────────────────────────────────┘ │
                                                         │
 ```
+
+</details>
 
 两点关键：
 - 同一个 `dispatch(req, ctx)` 函数被两种 transport 调。`ctx.caller` 是 `'host'`（来自 socket）或 `'agent'`（来自 delivery）——这是 dispatcher 唯一需要分辨的事。
@@ -798,6 +871,71 @@ function pollResponse(requestId: string, timeoutMs: number): ResponseFrame | nul
 
 #### 10.4 完整双向 flow
 
+<svg viewBox="0 0 880 540" xmlns="http://www.w3.org/2000/svg" class="figure-svg" role="img" aria-label="Container ncl round-trip: write cli_request to outbound.db, host delivery dispatches, write cli_response to inbound.db, container polls and ACKs">
+  <defs>
+    <marker id="r13b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/></marker>
+  </defs>
+  <line x1="130" y1="44" x2="130" y2="520" stroke="#cbd5e1" stroke-width="1" stroke-dasharray="3,2"/>
+  <line x1="370" y1="44" x2="370" y2="520" stroke="#cbd5e1" stroke-width="1" stroke-dasharray="3,2"/>
+  <line x1="540" y1="44" x2="540" y2="520" stroke="#cbd5e1" stroke-width="1" stroke-dasharray="3,2"/>
+  <line x1="750" y1="44" x2="750" y2="520" stroke="#cbd5e1" stroke-width="1" stroke-dasharray="3,2"/>
+  <rect x="40" y="14" width="180" height="24" rx="4" fill="#fff7ed" stroke="#ea580c" stroke-width="1.5"/>
+  <text x="130" y="30" font-size="11" font-weight="600" text-anchor="middle" fill="#ea580c">container shell (ncl bun)</text>
+  <rect x="280" y="14" width="180" height="24" rx="4" fill="#f5f3ff" stroke="#7c3aed" stroke-width="1.5"/>
+  <text x="370" y="30" font-size="11" font-weight="600" text-anchor="middle" fill="#7c3aed">outbound.db</text>
+  <rect x="450" y="14" width="180" height="24" rx="4" fill="#f5f3ff" stroke="#7c3aed" stroke-width="1.5"/>
+  <text x="540" y="30" font-size="11" font-weight="600" text-anchor="middle" fill="#7c3aed">inbound.db</text>
+  <rect x="660" y="14" width="180" height="24" rx="4" fill="#ecfeff" stroke="#0d9488" stroke-width="1.5"/>
+  <text x="750" y="30" font-size="11" font-weight="600" text-anchor="middle" fill="#0d9488">host (delivery + dispatch)</text>
+  <rect x="40" y="50" width="180" height="60" rx="5" fill="#ffffff" stroke="#ea580c" stroke-width="1"/>
+  <text x="50" y="68" font-size="11" font-weight="600" fill="currentColor">ncl groups list</text>
+  <text x="50" y="84" font-size="10" fill="#64748b">parseArgv → req {id, command,</text>
+  <text x="50" y="98" font-size="10" fill="#64748b">args:{}}</text>
+  <line x1="220" y1="80" x2="280" y2="80" stroke="#ea580c" stroke-width="1.5" marker-end="url(#r13b)"/>
+  <text x="225" y="74" font-size="10" fill="#ea580c">writeRequest</text>
+  <rect x="280" y="50" width="180" height="60" rx="5" fill="#f5f3ff" stroke="#7c3aed" stroke-width="1"/>
+  <text x="290" y="66" font-size="10" font-weight="600" fill="currentColor">BEGIN IMMEDIATE</text>
+  <text x="290" y="80" font-size="10" fill="#64748b">INSERT messages_out</text>
+  <text x="290" y="92" font-size="10" fill="#64748b">kind='system'</text>
+  <text x="290" y="104" font-size="10" fill="#64748b">action=cli_request, ...</text>
+  <line x1="460" y1="80" x2="660" y2="160" stroke="#7c3aed" stroke-width="1.2" stroke-dasharray="3,2" marker-end="url(#r13b)"/>
+  <text x="500" y="120" font-size="10" fill="#7c3aed">delivery loop polls</text>
+  <rect x="610" y="130" width="240" height="116" rx="5" fill="#fed7aa" stroke="#ea580c" stroke-width="1.5"/>
+  <text x="620" y="148" font-size="11" font-weight="600" fill="currentColor">dispatch(req, {caller:'agent', ...})</text>
+  <text x="620" y="166" font-size="10" fill="#64748b">cli_scope='group' filter:</text>
+  <text x="620" y="180" font-size="10" fill="#64748b">  • "groups" in whitelist ✓</text>
+  <text x="620" y="194" font-size="10" fill="#64748b">  • auto-fill id = ctx.agentGroupId</text>
+  <text x="620" y="212" font-size="10" fill="#64748b">handler: SELECT * FROM agent_groups</text>
+  <text x="620" y="226" font-size="10" fill="#64748b">post-filter: scopeField='id'</text>
+  <text x="620" y="240" font-size="10" fill="#64748b">→ {ok:true, data:[...]}</text>
+  <line x1="660" y1="260" x2="540" y2="290" stroke="#0d9488" stroke-width="1.5" stroke-dasharray="3,2" marker-end="url(#r13b)"/>
+  <text x="500" y="280" font-size="10" fill="#0d9488">insertMessage trigger=0</text>
+  <rect x="450" y="290" width="180" height="64" rx="5" fill="#f5f3ff" stroke="#7c3aed" stroke-width="1"/>
+  <text x="460" y="306" font-size="10" font-weight="600" fill="currentColor">INSERT messages_in</text>
+  <text x="460" y="320" font-size="10" fill="#64748b">kind='system'</text>
+  <text x="460" y="334" font-size="10" fill="#64748b">type=cli_response</text>
+  <text x="460" y="348" font-size="10" fill="#dc2626">trigger=0 — do NOT wake</text>
+  <rect x="40" y="378" width="180" height="86" rx="5" fill="#ffffff" stroke="#ea580c" stroke-width="1"/>
+  <text x="50" y="394" font-size="11" font-weight="600" fill="currentColor">pollResponse loop</text>
+  <text x="50" y="408" font-size="10" fill="#64748b">every 500ms re-open inDb</text>
+  <text x="50" y="422" font-size="10" fill="#64748b">SELECT ... LIKE '%requestId%'</text>
+  <text x="50" y="436" font-size="10" fill="#64748b">found → INSERT processing_ack</text>
+  <text x="50" y="450" font-size="10" fill="#64748b">       'completed' (agent skip)</text>
+  <text x="50" y="464" font-size="10" fill="#64748b">return frame</text>
+  <line x1="450" y1="334" x2="220" y2="410" stroke="#7c3aed" stroke-width="1.5" stroke-dasharray="3,2" marker-end="url(#r13b)"/>
+  <text x="280" y="380" font-size="10" fill="#7c3aed">poll finds row</text>
+  <rect x="40" y="482" width="240" height="34" rx="5" fill="#f0fdf4" stroke="#16a34a" stroke-width="1.5"/>
+  <text x="50" y="498" font-size="11" font-weight="600" fill="currentColor">formatHuman(frame)</text>
+  <text x="50" y="510" font-size="10" fill="#64748b">stdout table → exit(ok ? 0 : 1)</text>
+  <line x1="130" y1="464" x2="130" y2="482" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#r13b)"/>
+  <text x="490" y="500" font-size="10" fill="#64748b">round-trip = 0.5–1.5 s</text>
+  <text x="490" y="514" font-size="10" fill="#64748b">trigger=0 avoids extra agent wake</text>
+</svg>
+<span class="figure-caption">图 R13.2 ｜ 容器内 ncl 完整双向 round-trip：通过 outbound/inbound DB 跨挂载传送 frame，trigger=0 保证不触发额外 agent wake。</span>
+
+<details>
+<summary>ASCII 原版</summary>
+
 ```
 container shell                      outbound.db        inbound.db        host
 ─────────────────────────────────────────────────────────────────────────────
@@ -844,6 +982,8 @@ pollResponse loop (every 500ms):
 └─ stdout 打印表格
 └─ exit
 ```
+
+</details>
 
 整个 round-trip 通常 0.5-1.5 秒（取决于 delivery loop 周期、container poll 周期）。
 
@@ -1200,6 +1340,61 @@ export const applyInstallPackages: ApprovalHandler = async ({ session, payload, 
 
 #### 12.4 完整 self-mod flow
 
+<svg viewBox="0 0 880 620" xmlns="http://www.w3.org/2000/svg" class="figure-svg" role="img" aria-label="Self-mod install_packages end-to-end: agent request, host approval, image rebuild, race-free container restart with on_wake message handoff">
+  <defs>
+    <marker id="r13c" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/></marker>
+  </defs>
+  <rect x="20" y="14" width="840" height="90" rx="8" fill="#fff7ed" stroke="#ea580c" stroke-width="1.5"/>
+  <text x="34" y="34" font-size="13" font-weight="700" fill="#ea580c">1. agent (in container)</text>
+  <text x="40" y="54" font-size="11" fill="currentColor">install_packages({apt:['ripgrep'], reason:'grep PDFs'})</text>
+  <text x="40" y="70" font-size="10" fill="#64748b">→ writeMessageOut({kind:'system', content:{action:'install_packages', apt, npm, reason}})</text>
+  <text x="40" y="84" font-size="10" fill="#64748b">→ return ok("Package install request submitted...") — fire-and-forget, agent continues</text>
+  <text x="40" y="98" font-size="10" fill="#64748b">sanitize: APT_RE / NPM_RE / MAX_PACKAGES=20 (defense in depth)</text>
+  <rect x="20" y="118" width="840" height="78" rx="8" fill="#ecfeff" stroke="#0d9488" stroke-width="1.5"/>
+  <text x="34" y="138" font-size="13" font-weight="700" fill="#0d9488">2. host delivery loop</text>
+  <text x="40" y="158" font-size="11" fill="currentColor">poll outbound.db → see action='install_packages'</text>
+  <text x="40" y="174" font-size="10" fill="#64748b">handleInstallPackages: re-sanitize apt/npm (defense in depth)</text>
+  <text x="40" y="188" font-size="10" fill="#64748b">requestApproval → pickApprover → INSERT pending_approvals → deliver card via Telegram/Discord</text>
+  <rect x="20" y="210" width="840" height="78" rx="8" fill="#e0f2fe" stroke="#0ea5e9" stroke-width="1.5"/>
+  <text x="34" y="230" font-size="13" font-weight="700" fill="#0ea5e9">3. owner DM</text>
+  <text x="40" y="250" font-size="11" fill="currentColor">"Agent 'gavriel' wants to install + rebuild: apt: ripgrep — reason: grep PDFs"</text>
+  <text x="40" y="266" font-size="11" font-weight="700" fill="#16a34a">[ Approve ]  [ Reject ]</text>
+  <text x="40" y="282" font-size="10" fill="#64748b">click → router → approval delivery → DELETE pending_approvals → lookup('install_packages')</text>
+  <rect x="20" y="302" width="840" height="120" rx="8" fill="#ecfeff" stroke="#0d9488" stroke-width="1.5"/>
+  <text x="34" y="322" font-size="13" font-weight="700" fill="#0d9488">4. applyInstallPackages (host)</text>
+  <text x="40" y="342" font-size="11" fill="currentColor">read container_configs.packages_apt JSON → append 'ripgrep' (dedup) → write back</text>
+  <text x="40" y="358" font-size="11" fill="#ea580c">buildAgentGroupImage(gid)  — docker build ~30s</text>
+  <text x="40" y="374" font-size="11" fill="#dc2626">writeSessionMessage(on_wake=1, "Packages installed (ripgrep)...")</text>
+  <text x="40" y="390" font-size="11" fill="currentColor">killContainer(sid, 'rebuild applied', onExit = wakeContainer)</text>
+  <text x="40" y="408" font-size="10" fill="#64748b">try/catch: if build fails, DB already updated — admin can retry via ncl groups restart --rebuild</text>
+  <rect x="20" y="436" width="410" height="84" rx="8" fill="#fef2f2" stroke="#dc2626" stroke-width="1.5"/>
+  <text x="34" y="456" font-size="12" font-weight="700" fill="#dc2626">5a. old container — SIGTERM grace period</text>
+  <text x="34" y="476" font-size="10" fill="#64748b">still polls inbound.db, but isFirstPoll=false</text>
+  <text x="34" y="490" font-size="10" fill="#dc2626">→ on_wake=1 row is FILTERED OUT (cannot steal)</text>
+  <text x="34" y="506" font-size="10" fill="#64748b">exit → onExit fires → wakeContainer(session)</text>
+  <rect x="450" y="436" width="410" height="84" rx="8" fill="#f0fdf4" stroke="#16a34a" stroke-width="1.5"/>
+  <text x="464" y="456" font-size="12" font-weight="700" fill="#16a34a">5b. new container — first poll</text>
+  <text x="464" y="476" font-size="10" fill="#64748b">isFirstPoll=true → on_wake=1 row included</text>
+  <text x="464" y="490" font-size="10" fill="currentColor">agent reads "Packages installed (ripgrep)..."</text>
+  <text x="464" y="506" font-size="10" fill="#64748b">runs ripgrep --version, replies to user</text>
+  <rect x="20" y="540" width="840" height="64" rx="8" fill="#fff7ed" stroke="#ea580c" stroke-width="1.5"/>
+  <text x="34" y="560" font-size="13" font-weight="700" fill="#ea580c">6. agent → user</text>
+  <text x="40" y="580" font-size="11" fill="currentColor">"Done, ripgrep is installed. Now back to grepping your PDFs..."</text>
+  <text x="40" y="596" font-size="10" fill="#64748b">admin clicked Approve once — DB write + image rebuild + restart + handoff all automatic</text>
+  <line x1="440" y1="104" x2="440" y2="118" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#r13c)"/>
+  <line x1="440" y1="196" x2="440" y2="210" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#r13c)"/>
+  <line x1="440" y1="288" x2="440" y2="302" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#r13c)"/>
+  <line x1="225" y1="422" x2="225" y2="436" stroke="#dc2626" stroke-width="1.2" marker-end="url(#r13c)"/>
+  <line x1="655" y1="422" x2="655" y2="436" stroke="#16a34a" stroke-width="1.2" marker-end="url(#r13c)"/>
+  <line x1="430" y1="478" x2="450" y2="478" stroke="#94a3b8" stroke-width="1.2" stroke-dasharray="3,2" marker-end="url(#r13c)"/>
+  <text x="436" y="472" font-size="9" fill="#64748b">onExit</text>
+  <line x1="655" y1="520" x2="655" y2="540" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#r13c)"/>
+</svg>
+<span class="figure-caption">图 R13.3 ｜ install_packages 端到端：agent fire-and-forget → admin 一键 Approve → host 自动改 DB + rebuild + race-free 容器交接 (on_wake 双层 race 防御)。</span>
+
+<details>
+<summary>ASCII 原版</summary>
+
 ```
 agent (in container):
   install_packages({apt: ['ripgrep']})
@@ -1253,6 +1448,8 @@ new container starts:
   agent runs `ripgrep --version`, OK
   agent replies to user: "Done, ripgrep is installed. Now back to grepping your PDFs..."
 ```
+
+</details>
 
 整个流程 admin 只点了一下 Approve，其余全部自动。这是 self-mod 的核心 UX 价值。
 

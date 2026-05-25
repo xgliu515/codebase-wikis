@@ -112,6 +112,46 @@ NanoClaw 是个人 Claude 助手网关：一个 Node 单进程同时挂在 Disco
 
 NanoClaw 实际上有 **三种** SQLite 数据库（不是三个 — 是三种角色）：
 
+<svg viewBox="0 0 820 360" xmlns="http://www.w3.org/2000/svg" class="figure-svg" role="img" aria-label="NanoClaw three DB roles: central, inbound, outbound">
+  <defs>
+    <marker id="ar-r11" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/></marker>
+  </defs>
+  <rect x="20" y="20" width="200" height="320" rx="8" fill="#f1f5f9" stroke="#94a3b8" stroke-width="1.2"/>
+  <text x="120" y="42" text-anchor="middle" font-size="13" font-weight="700" fill="#0d9488">HOST (Node)</text>
+  <text x="120" y="60" text-anchor="middle" font-size="10" fill="#64748b">better-sqlite3</text>
+  <rect x="600" y="20" width="200" height="320" rx="8" fill="#f1f5f9" stroke="#94a3b8" stroke-width="1.2"/>
+  <text x="700" y="42" text-anchor="middle" font-size="13" font-weight="700" fill="#ea580c">CONTAINER (Bun)</text>
+  <text x="700" y="60" text-anchor="middle" font-size="10" fill="#64748b">bun:sqlite</text>
+  <rect x="260" y="80" width="300" height="58" rx="6" fill="#ddd6fe" stroke="#7c3aed" stroke-width="1.5"/>
+  <text x="410" y="103" text-anchor="middle" font-size="13" font-weight="600" fill="currentColor">Central DB · data/v2.db</text>
+  <text x="410" y="122" text-anchor="middle" font-size="10" fill="#64748b">identities · roles · wiring · approvals · sessions</text>
+  <rect x="260" y="158" width="300" height="58" rx="6" fill="#ddd6fe" stroke="#7c3aed" stroke-width="1.5"/>
+  <text x="410" y="181" text-anchor="middle" font-size="13" font-weight="600" fill="currentColor">inbound.db</text>
+  <text x="410" y="200" text-anchor="middle" font-size="10" fill="#64748b">host writes · container reads (RO)</text>
+  <rect x="260" y="236" width="300" height="58" rx="6" fill="#ddd6fe" stroke="#7c3aed" stroke-width="1.5"/>
+  <text x="410" y="259" text-anchor="middle" font-size="13" font-weight="600" fill="currentColor">outbound.db</text>
+  <text x="410" y="278" text-anchor="middle" font-size="10" fill="#64748b">container writes · host reads (RO)</text>
+  <rect x="260" y="304" width="300" height="36" rx="6" fill="#f0fdf4" stroke="#16a34a" stroke-width="1.2"/>
+  <text x="410" y="327" text-anchor="middle" font-size="11" fill="currentColor">.heartbeat (mtime · no lock)</text>
+  <line x1="220" y1="109" x2="258" y2="109" stroke="#0d9488" stroke-width="1.6" marker-end="url(#ar-r11)"/>
+  <text x="239" y="100" text-anchor="middle" font-size="9" fill="#0d9488">RW</text>
+  <line x1="220" y1="187" x2="258" y2="187" stroke="#0d9488" stroke-width="1.6" marker-end="url(#ar-r11)"/>
+  <text x="239" y="178" text-anchor="middle" font-size="9" fill="#0d9488">RW</text>
+  <line x1="562" y1="187" x2="598" y2="187" stroke="#ea580c" stroke-width="1.2" stroke-dasharray="3,2" marker-end="url(#ar-r11)"/>
+  <text x="580" y="178" text-anchor="middle" font-size="9" fill="#ea580c">RO</text>
+  <line x1="220" y1="265" x2="258" y2="265" stroke="#0d9488" stroke-width="1.2" stroke-dasharray="3,2" marker-end="url(#ar-r11)"/>
+  <text x="239" y="256" text-anchor="middle" font-size="9" fill="#0d9488">RO</text>
+  <line x1="562" y1="265" x2="598" y2="265" stroke="#ea580c" stroke-width="1.6" marker-end="url(#ar-r11)"/>
+  <text x="580" y="256" text-anchor="middle" font-size="9" fill="#ea580c">RW</text>
+  <line x1="562" y1="322" x2="598" y2="322" stroke="#ea580c" stroke-width="1.6" marker-end="url(#ar-r11)"/>
+  <text x="580" y="313" text-anchor="middle" font-size="9" fill="#ea580c">touch</text>
+  <text x="410" y="350" text-anchor="middle" font-size="10" fill="#94a3b8">single-writer rule · no IPC · no socket · no pipe</text>
+</svg>
+<span class="figure-caption">图 R1.1 ｜ 三 DB 角色与单 writer 边界：host 独占中央 + inbound，container 独占 outbound + 心跳</span>
+
+<details>
+<summary>ASCII 原版</summary>
+
 ```
 data/
   v2.db                                   <- CENTRAL: 中央 DB（host 写，host 读）
@@ -126,6 +166,8 @@ data/
         inbox/<message_id>/               <- 用户附件解码后落盘
         outbox/<message_id>/              <- agent 产出的附件
 ```
+
+</details>
 
 | DB | 路径 | Writer | Reader | 用途 |
 |----|------|--------|--------|------|
@@ -160,6 +202,78 @@ data/
 ### 5. Host / Container 分工全景图
 
 把上面的所有规则拼起来，一条消息从用户到 agent 再回到用户的完整路径是这样：
+
+<svg viewBox="0 0 880 460" xmlns="http://www.w3.org/2000/svg" class="figure-svg" role="img" aria-label="End-to-end message flow from platform through host to container and back">
+  <defs>
+    <marker id="ar-r12" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/></marker>
+    <marker id="ar-r12-orange" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#ea580c"/></marker>
+    <marker id="ar-r12-teal" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#0d9488"/></marker>
+  </defs>
+  <rect x="20" y="50" width="120" height="60" rx="6" fill="#e0f2fe" stroke="#0ea5e9" stroke-width="1.5"/>
+  <text x="80" y="76" text-anchor="middle" font-size="12" font-weight="600" fill="currentColor">Platform</text>
+  <text x="80" y="94" text-anchor="middle" font-size="10" fill="#64748b">Discord / Slack / CLI</text>
+  <rect x="170" y="30" width="500" height="200" rx="8" fill="#f0fdfa" stroke="#0d9488" stroke-width="1.5"/>
+  <text x="420" y="50" text-anchor="middle" font-size="12" font-weight="700" fill="#0d9488">HOST · Node + better-sqlite3</text>
+  <rect x="185" y="62" width="100" height="42" rx="4" fill="#ffffff" stroke="#0d9488" stroke-width="1"/>
+  <text x="235" y="80" text-anchor="middle" font-size="10" font-weight="600" fill="currentColor">adapter</text>
+  <text x="235" y="95" text-anchor="middle" font-size="9" fill="#64748b">channels/*.ts</text>
+  <rect x="305" y="62" width="100" height="42" rx="4" fill="#ffffff" stroke="#0d9488" stroke-width="1"/>
+  <text x="355" y="80" text-anchor="middle" font-size="10" font-weight="600" fill="currentColor">router</text>
+  <text x="355" y="95" text-anchor="middle" font-size="9" fill="#64748b">fan-out · wiring</text>
+  <rect x="425" y="62" width="120" height="42" rx="4" fill="#ffffff" stroke="#0d9488" stroke-width="1"/>
+  <text x="485" y="80" text-anchor="middle" font-size="10" font-weight="600" fill="currentColor">session-manager</text>
+  <text x="485" y="95" text-anchor="middle" font-size="9" fill="#64748b">resolveSession</text>
+  <rect x="565" y="62" width="90" height="42" rx="4" fill="#ffffff" stroke="#0d9488" stroke-width="1"/>
+  <text x="610" y="80" text-anchor="middle" font-size="10" font-weight="600" fill="currentColor">wakeContainer</text>
+  <text x="610" y="95" text-anchor="middle" font-size="9" fill="#64748b">docker run</text>
+  <line x1="285" y1="83" x2="303" y2="83" stroke="#0d9488" stroke-width="1.2" marker-end="url(#ar-r12-teal)"/>
+  <line x1="405" y1="83" x2="423" y2="83" stroke="#0d9488" stroke-width="1.2" marker-end="url(#ar-r12-teal)"/>
+  <line x1="545" y1="83" x2="563" y2="83" stroke="#0d9488" stroke-width="1.2" marker-end="url(#ar-r12-teal)"/>
+  <rect x="185" y="124" width="200" height="44" rx="4" fill="#ddd6fe" stroke="#7c3aed" stroke-width="1.5"/>
+  <text x="285" y="142" text-anchor="middle" font-size="11" font-weight="600" fill="currentColor">insertMessage → inbound.db</text>
+  <text x="285" y="158" text-anchor="middle" font-size="9" fill="#64748b">messages_in (seq=even)</text>
+  <rect x="405" y="124" width="170" height="44" rx="4" fill="#fef3e2" stroke="#ea580c" stroke-width="1.5"/>
+  <text x="490" y="142" text-anchor="middle" font-size="11" font-weight="600" fill="currentColor">delivery poll · 1s/60s</text>
+  <text x="490" y="158" text-anchor="middle" font-size="9" fill="#64748b">scan outbound.db</text>
+  <rect x="185" y="180" width="455" height="40" rx="4" fill="#f1f5f9" stroke="#94a3b8" stroke-width="1"/>
+  <text x="412" y="204" text-anchor="middle" font-size="10" fill="currentColor">bind mount → /workspace/inbound.db (RO) · /workspace/outbound.db (RW)</text>
+  <rect x="170" y="250" width="500" height="200" rx="8" fill="#fff7ed" stroke="#ea580c" stroke-width="1.5"/>
+  <text x="420" y="270" text-anchor="middle" font-size="12" font-weight="700" fill="#ea580c">CONTAINER · Bun + bun:sqlite</text>
+  <rect x="185" y="282" width="110" height="40" rx="4" fill="#ffffff" stroke="#ea580c" stroke-width="1"/>
+  <text x="240" y="299" text-anchor="middle" font-size="10" font-weight="600" fill="currentColor">poll-loop</text>
+  <text x="240" y="313" text-anchor="middle" font-size="9" fill="#64748b">SELECT pending</text>
+  <rect x="315" y="282" width="110" height="40" rx="4" fill="#ffffff" stroke="#ea580c" stroke-width="1"/>
+  <text x="370" y="299" text-anchor="middle" font-size="10" font-weight="600" fill="currentColor">formatter</text>
+  <text x="370" y="313" text-anchor="middle" font-size="9" fill="#64748b">&lt;messages&gt; XML</text>
+  <rect x="445" y="282" width="130" height="40" rx="4" fill="#ffffff" stroke="#ea580c" stroke-width="1"/>
+  <text x="510" y="299" text-anchor="middle" font-size="10" font-weight="600" fill="currentColor">claude provider</text>
+  <text x="510" y="313" text-anchor="middle" font-size="9" fill="#64748b">claude-agent-sdk</text>
+  <line x1="295" y1="302" x2="313" y2="302" stroke="#ea580c" stroke-width="1.2" marker-end="url(#ar-r12-orange)"/>
+  <line x1="425" y1="302" x2="443" y2="302" stroke="#ea580c" stroke-width="1.2" marker-end="url(#ar-r12-orange)"/>
+  <rect x="185" y="340" width="240" height="40" rx="4" fill="#ffffff" stroke="#ea580c" stroke-width="1"/>
+  <text x="305" y="358" text-anchor="middle" font-size="10" font-weight="600" fill="currentColor">mcp-tools/core.ts</text>
+  <text x="305" y="372" text-anchor="middle" font-size="9" fill="#64748b">send_message · send_file</text>
+  <rect x="445" y="340" width="210" height="40" rx="4" fill="#ddd6fe" stroke="#7c3aed" stroke-width="1.5"/>
+  <text x="550" y="358" text-anchor="middle" font-size="10" font-weight="600" fill="currentColor">writeMessageOut → outbound.db</text>
+  <text x="550" y="372" text-anchor="middle" font-size="9" fill="#64748b">messages_out (seq=odd)</text>
+  <line x1="425" y1="360" x2="443" y2="360" stroke="#ea580c" stroke-width="1.2" marker-end="url(#ar-r12-orange)"/>
+  <rect x="185" y="398" width="470" height="36" rx="4" fill="#f0fdf4" stroke="#16a34a" stroke-width="1.2"/>
+  <text x="420" y="421" text-anchor="middle" font-size="10" fill="currentColor">touch /workspace/.heartbeat (liveness · no SQLite lock)</text>
+  <line x1="140" y1="80" x2="183" y2="80" stroke="#0ea5e9" stroke-width="1.4" marker-end="url(#ar-r12)"/>
+  <text x="161" y="72" text-anchor="middle" font-size="9" fill="#0ea5e9">inbound</text>
+  <line x1="183" y1="100" x2="140" y2="100" stroke="#0ea5e9" stroke-width="1.4" marker-end="url(#ar-r12)"/>
+  <text x="161" y="113" text-anchor="middle" font-size="9" fill="#0ea5e9">deliver</text>
+  <rect x="700" y="50" width="160" height="60" rx="6" fill="#e0f2fe" stroke="#0ea5e9" stroke-width="1.5"/>
+  <text x="780" y="76" text-anchor="middle" font-size="11" font-weight="600" fill="currentColor">No socket</text>
+  <text x="780" y="94" text-anchor="middle" font-size="10" fill="#64748b">no IPC · no stdin pipe</text>
+  <text x="780" y="140" text-anchor="middle" font-size="10" fill="#94a3b8">two SQLite files</text>
+  <text x="780" y="155" text-anchor="middle" font-size="10" fill="#94a3b8">+ one mtime file</text>
+  <text x="780" y="170" text-anchor="middle" font-size="10" fill="#94a3b8">= entire IO surface</text>
+</svg>
+<span class="figure-caption">图 R1.2 ｜ 入站 → 路由 → 写 inbound → wake → 容器轮询 → 写 outbound → host 投递的完整闭环</span>
+
+<details>
+<summary>ASCII 原版</summary>
 
 ```
                                         [HOST 进程 (Node + better-sqlite3)]
@@ -217,6 +331,8 @@ data/
                                                           |  touch /workspace/.heartbeat    |
                                                           +---------------------------------+
 ```
+
+</details>
 
 文字描述这条路：
 

@@ -103,6 +103,43 @@ data/v2-sessions/
 
 #### 7.2.5 状态机
 
+<svg viewBox="0 0 760 320" xmlns="http://www.w3.org/2000/svg" class="figure-svg" role="img" aria-label="session container state machine: created, active, idle, stopped with transitions via wakeContainer, heartbeat, killContainer">
+  <defs>
+    <marker id="ar71" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/></marker>
+  </defs>
+  <ellipse cx="120" cy="160" rx="70" ry="40" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.5"/>
+  <text x="120" y="158" text-anchor="middle" font-size="13" font-weight="700" fill="currentColor">created</text>
+  <text x="120" y="176" text-anchor="middle" font-size="10" fill="#64748b">resolveSession</text>
+  <ellipse cx="380" cy="80" rx="80" ry="44" fill="#ffedd5" stroke="#ea580c" stroke-width="2"/>
+  <text x="380" y="76" text-anchor="middle" font-size="13" font-weight="700" fill="currentColor">active / running</text>
+  <text x="380" y="94" text-anchor="middle" font-size="10" fill="#64748b">heartbeat 持续</text>
+  <text x="380" y="108" text-anchor="middle" font-size="10" fill="#64748b">container_status='running'</text>
+  <ellipse cx="380" cy="240" rx="80" ry="44" fill="#ddd6fe" stroke="#7c3aed" stroke-width="1.5"/>
+  <text x="380" y="236" text-anchor="middle" font-size="13" font-weight="700" fill="currentColor">idle</text>
+  <text x="380" y="254" text-anchor="middle" font-size="10" fill="#64748b">no due messages</text>
+  <text x="380" y="268" text-anchor="middle" font-size="10" fill="#64748b">container_status='idle'</text>
+  <ellipse cx="640" cy="160" rx="80" ry="44" fill="#fef2f2" stroke="#dc2626" stroke-width="1.5"/>
+  <text x="640" y="156" text-anchor="middle" font-size="13" font-weight="700" fill="currentColor">stopped</text>
+  <text x="640" y="174" text-anchor="middle" font-size="10" fill="#64748b">activeContainers.delete</text>
+  <text x="640" y="188" text-anchor="middle" font-size="10" fill="#64748b">container_status='stopped'</text>
+  <path d="M180 140 Q250 90 300 80" fill="none" stroke="#94a3b8" stroke-width="1.4" marker-end="url(#ar71)"/>
+  <text x="180" y="80" font-size="10" fill="#64748b">wakeContainer()</text>
+  <text x="180" y="94" font-size="10" fill="#64748b">spawnContainer</text>
+  <path d="M380 124 Q360 180 380 196" fill="none" stroke="#94a3b8" stroke-width="1.4" marker-end="url(#ar71)"/>
+  <text x="280" y="170" font-size="10" fill="#64748b">poll loop drains</text>
+  <path d="M460 80 Q570 100 580 130" fill="none" stroke="#94a3b8" stroke-width="1.4" marker-end="url(#ar71)"/>
+  <text x="500" y="92" font-size="10" fill="#64748b">on close() / exit</text>
+  <path d="M460 240 Q580 230 600 192" fill="none" stroke="#94a3b8" stroke-width="1.4" marker-end="url(#ar71)"/>
+  <text x="490" y="262" font-size="10" fill="#64748b">killContainer</text>
+  <text x="490" y="276" font-size="10" fill="#64748b">(host-sweep / restart)</text>
+  <path d="M564 160 Q400 160 380 196" fill="none" stroke="#94a3b8" stroke-width="1.2" stroke-dasharray="3,2" marker-end="url(#ar71)"/>
+  <text x="430" y="156" font-size="10" fill="#64748b">re-wake</text>
+</svg>
+<span class="figure-caption">图 R7.1 ｜ session 容器状态机：created → wakeContainer → active（橙）；poll loop 跑完进入 idle（紫）；自然 close() 或 host-sweep killContainer 落到 stopped（红）；新消息可让 idle/stopped 重新回到 active</span>
+
+<details>
+<summary>ASCII 原版</summary>
+
 ```
                 wakeContainer() succeeds
 created  ───────────────────────────────────┐
@@ -116,6 +153,8 @@ created  ───────────────────────�
    │  (host-sweep / restart)│  poll loop's natural drain
    └───────────────────────┘
 ```
+
+</details>
 
 DB 上对应的字段是 `container_status` 三态：`stopped` / `running` / `idle`，由 `markContainerRunning` / `markContainerIdle` / `markContainerStopped` 三个 helper 维护（`:531-543`）。注意：v2.0.64 的代码**没有 host 端的 wall-clock idle 超时**——`spawnContainer` 的注释（`src/container-runner.ts:172-175`）写明放弃了"按时长 kill"的逻辑，改由 `host-sweep` 综合 heartbeat 文件 mtime + processing_ack claim age 来判断（细节在第 10 章）。
 
@@ -225,6 +264,86 @@ if (!onecliApplied) {
 | `container/skills/` | `/app/skills` | RO | 共享 skills |
 | 用户配置 additionalMounts | `/workspace/extra/<name>` | 视 allowlist | mount-security 校验 |
 | provider contribution mounts | provider 决定 | provider 决定 | 比如 opencode-xdg |
+
+<svg viewBox="0 0 880 460" xmlns="http://www.w3.org/2000/svg" class="figure-svg" role="img" aria-label="mount topology with host paths on left mapped to container paths on right, marking RW vs RO and the session/group/shared scopes">
+  <defs>
+    <marker id="ar74" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/></marker>
+  </defs>
+  <text x="180" y="22" text-anchor="middle" font-size="13" font-weight="700" fill="#0d9488">host paths</text>
+  <text x="700" y="22" text-anchor="middle" font-size="13" font-weight="700" fill="#ea580c">container paths (Bun)</text>
+  <text x="440" y="22" text-anchor="middle" font-size="11" font-weight="600" fill="#64748b">mode</text>
+  <rect x="20" y="40" width="320" height="58" rx="6" fill="#ccfbf1" stroke="#0d9488" stroke-width="1.5"/>
+  <text x="30" y="58" font-size="11" font-weight="600" fill="currentColor">data/v2-sessions/&lt;group&gt;/&lt;session&gt;/</text>
+  <text x="30" y="74" font-size="10" fill="#64748b">inbound.db · outbound.db · inbox/ · outbox/</text>
+  <text x="30" y="88" font-size="10" fill="#64748b">.heartbeat</text>
+  <rect x="540" y="40" width="320" height="58" rx="6" fill="#ffedd5" stroke="#ea580c" stroke-width="1.5"/>
+  <text x="550" y="58" font-size="11" font-weight="600" fill="currentColor">/workspace</text>
+  <text x="550" y="74" font-size="10" fill="#64748b">session root（host 写 inbound、container 写 outbound）</text>
+  <line x1="340" y1="68" x2="540" y2="68" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar74)"/>
+  <text x="440" y="62" text-anchor="middle" font-size="11" font-weight="700" fill="#16a34a">RW</text>
+  <rect x="20" y="108" width="320" height="40" rx="6" fill="#ccfbf1" stroke="#0d9488" stroke-width="1.5"/>
+  <text x="30" y="124" font-size="11" font-weight="600" fill="currentColor">groups/&lt;folder&gt;/</text>
+  <text x="30" y="140" font-size="10" fill="#64748b">working dir · CLAUDE.local.md · conversations/</text>
+  <rect x="540" y="108" width="320" height="40" rx="6" fill="#ffedd5" stroke="#ea580c" stroke-width="1.5"/>
+  <text x="550" y="124" font-size="11" font-weight="600" fill="currentColor">/workspace/agent</text>
+  <text x="550" y="140" font-size="10" fill="#64748b">group root</text>
+  <line x1="340" y1="128" x2="540" y2="128" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar74)"/>
+  <text x="440" y="122" text-anchor="middle" font-size="11" font-weight="700" fill="#16a34a">RW</text>
+  <rect x="20" y="158" width="320" height="60" rx="6" fill="#ddd6fe" stroke="#7c3aed" stroke-width="1.5"/>
+  <text x="30" y="174" font-size="11" font-weight="600" fill="currentColor">groups/&lt;folder&gt;/container.json</text>
+  <text x="30" y="188" font-size="11" font-weight="600" fill="currentColor">groups/&lt;folder&gt;/CLAUDE.md</text>
+  <text x="30" y="202" font-size="10" fill="#64748b">groups/&lt;folder&gt;/.claude-fragments/</text>
+  <text x="30" y="214" font-size="10" fill="#64748b">groups/global/</text>
+  <rect x="540" y="158" width="320" height="60" rx="6" fill="#ffedd5" stroke="#ea580c" stroke-width="1.5"/>
+  <text x="550" y="174" font-size="11" font-weight="600" fill="currentColor">/workspace/agent/container.json</text>
+  <text x="550" y="188" font-size="11" font-weight="600" fill="currentColor">/workspace/agent/CLAUDE.md</text>
+  <text x="550" y="202" font-size="10" fill="#64748b">/workspace/agent/.claude-fragments</text>
+  <text x="550" y="214" font-size="10" fill="#64748b">/workspace/global</text>
+  <line x1="340" y1="188" x2="540" y2="188" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar74)"/>
+  <text x="440" y="182" text-anchor="middle" font-size="11" font-weight="700" fill="#dc2626">RO</text>
+  <text x="440" y="200" text-anchor="middle" font-size="9" fill="#64748b">嵌套覆盖屏蔽 agent 写</text>
+  <rect x="20" y="228" width="320" height="40" rx="6" fill="#ccfbf1" stroke="#0d9488" stroke-width="1.5"/>
+  <text x="30" y="244" font-size="11" font-weight="600" fill="currentColor">data/v2-sessions/&lt;group&gt;/.claude-shared/</text>
+  <text x="30" y="260" font-size="10" fill="#64748b">settings.json · skill symlinks · SDK state</text>
+  <rect x="540" y="228" width="320" height="40" rx="6" fill="#ffedd5" stroke="#ea580c" stroke-width="1.5"/>
+  <text x="550" y="244" font-size="11" font-weight="600" fill="currentColor">/home/node/.claude</text>
+  <text x="550" y="260" font-size="10" fill="#64748b">group-shared Claude state（跨 session 复用）</text>
+  <line x1="340" y1="248" x2="540" y2="248" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar74)"/>
+  <text x="440" y="242" text-anchor="middle" font-size="11" font-weight="700" fill="#16a34a">RW</text>
+  <rect x="20" y="278" width="320" height="60" rx="6" fill="#ddd6fe" stroke="#7c3aed" stroke-width="1.5"/>
+  <text x="30" y="294" font-size="11" font-weight="600" fill="currentColor">container/CLAUDE.md</text>
+  <text x="30" y="308" font-size="11" font-weight="600" fill="currentColor">container/agent-runner/src/</text>
+  <text x="30" y="322" font-size="11" font-weight="600" fill="currentColor">container/skills/</text>
+  <text x="30" y="334" font-size="10" fill="#64748b">repo 内的 base bundle（编辑后重启 container 生效）</text>
+  <rect x="540" y="278" width="320" height="60" rx="6" fill="#ffedd5" stroke="#ea580c" stroke-width="1.5"/>
+  <text x="550" y="294" font-size="11" font-weight="600" fill="currentColor">/app/CLAUDE.md</text>
+  <text x="550" y="308" font-size="11" font-weight="600" fill="currentColor">/app/src</text>
+  <text x="550" y="322" font-size="11" font-weight="600" fill="currentColor">/app/skills</text>
+  <text x="550" y="334" font-size="10" fill="#64748b">所有 group 共享，无 per-group overlay (v2.0.64)</text>
+  <line x1="340" y1="308" x2="540" y2="308" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar74)"/>
+  <text x="440" y="302" text-anchor="middle" font-size="11" font-weight="700" fill="#dc2626">RO</text>
+  <rect x="20" y="348" width="320" height="40" rx="6" fill="#fef2f2" stroke="#dc2626" stroke-width="1.2" stroke-dasharray="4,3"/>
+  <text x="30" y="364" font-size="11" font-weight="600" fill="currentColor">用户配置 additionalMounts</text>
+  <text x="30" y="380" font-size="10" fill="#64748b">需 ~/.config/nanoclaw/mount-allowlist.json 放行</text>
+  <rect x="540" y="348" width="320" height="40" rx="6" fill="#ffedd5" stroke="#ea580c" stroke-width="1.2" stroke-dasharray="4,3"/>
+  <text x="550" y="364" font-size="11" font-weight="600" fill="currentColor">/workspace/extra/&lt;name&gt;</text>
+  <text x="550" y="380" font-size="10" fill="#64748b">mount-security 3 层校验（blocked patterns + roots + path）</text>
+  <line x1="340" y1="368" x2="540" y2="368" stroke="#94a3b8" stroke-width="1.2" stroke-dasharray="3,2" marker-end="url(#ar74)"/>
+  <text x="440" y="362" text-anchor="middle" font-size="10" fill="#64748b">RO 或 RW</text>
+  <text x="440" y="378" text-anchor="middle" font-size="9" fill="#64748b">视 allowlist</text>
+  <rect x="20" y="408" width="840" height="40" rx="6" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1"/>
+  <text x="32" y="426" font-size="10" fill="#64748b">图例：</text>
+  <rect x="80" y="416" width="14" height="14" fill="#ccfbf1" stroke="#0d9488"/>
+  <text x="100" y="427" font-size="10" fill="#64748b">host data（RW 数据卷）</text>
+  <rect x="240" y="416" width="14" height="14" fill="#ddd6fe" stroke="#7c3aed"/>
+  <text x="260" y="427" font-size="10" fill="#64748b">repo / config（RO 注入）</text>
+  <rect x="420" y="416" width="14" height="14" fill="#fef2f2" stroke="#dc2626" stroke-dasharray="4,3"/>
+  <text x="440" y="427" font-size="10" fill="#64748b">攻击面（须 allowlist）</text>
+  <rect x="600" y="416" width="14" height="14" fill="#ffedd5" stroke="#ea580c"/>
+  <text x="620" y="427" font-size="10" fill="#64748b">container 内挂载点</text>
+  <text x="32" y="442" font-size="10" fill="#64748b">绿色 RW = 数据流出入；红色 RO = 受控注入，agent 写会失败</text>
+</svg>
+<span class="figure-caption">图 R7.4 ｜ Mount 拓扑双视图：左 host 路径、右 container 路径，箭头标方向，中间标 RW/RO；session 与 group 数据走 RW（青）、container.json / CLAUDE.md / base bundle 走 RO（紫）保证 agent 改不了自己的 instructions、additionalMounts（红）须 allowlist 放行</span>
 
 几条值得专门说：
 
@@ -426,6 +545,56 @@ export function killContainer(sessionId: string, reason: string, onExit?: () => 
 
 #### 7.6.3 时间线
 
+<svg viewBox="0 0 880 440" xmlns="http://www.w3.org/2000/svg" class="figure-svg" role="img" aria-label="kill plus respawn timeline across host, docker daemon, container A dying and container B starting, showing on_wake=1 message handoff">
+  <defs>
+    <marker id="ar72" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/></marker>
+  </defs>
+  <text x="80" y="20" text-anchor="middle" font-size="12" font-weight="700" fill="#0d9488">host</text>
+  <text x="290" y="20" text-anchor="middle" font-size="12" font-weight="700" fill="#0ea5e9">docker</text>
+  <text x="500" y="20" text-anchor="middle" font-size="12" font-weight="700" fill="#dc2626">container A (dying)</text>
+  <text x="780" y="20" text-anchor="middle" font-size="12" font-weight="700" fill="#ea580c">container B (new)</text>
+  <line x1="80" y1="30" x2="80" y2="430" stroke="#0d9488" stroke-width="1" stroke-dasharray="2,3"/>
+  <line x1="290" y1="30" x2="290" y2="430" stroke="#0ea5e9" stroke-width="1" stroke-dasharray="2,3"/>
+  <line x1="500" y1="30" x2="500" y2="260" stroke="#dc2626" stroke-width="1" stroke-dasharray="2,3"/>
+  <line x1="780" y1="280" x2="780" y2="430" stroke="#ea580c" stroke-width="1" stroke-dasharray="2,3"/>
+  <line x1="84" y1="50" x2="496" y2="50" stroke="#7c3aed" stroke-width="1.4" marker-end="url(#ar72)"/>
+  <text x="290" y="44" text-anchor="middle" font-size="10" fill="#7c3aed">writeSessionMessage(on_wake=1) → inbound.db</text>
+  <rect x="430" y="62" width="140" height="32" rx="4" fill="#fef2f2" stroke="#dc2626" stroke-width="1"/>
+  <text x="500" y="80" text-anchor="middle" font-size="10" fill="#64748b">next poll skips</text>
+  <text x="500" y="92" text-anchor="middle" font-size="10" fill="#64748b">(on_wake col guard)</text>
+  <line x1="84" y1="116" x2="286" y2="116" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar72)"/>
+  <text x="180" y="110" font-size="10" fill="#64748b">killContainer(A, onExit)</text>
+  <text x="180" y="124" font-size="10" fill="#64748b">stopContainer(A)</text>
+  <line x1="294" y1="138" x2="496" y2="138" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar72)"/>
+  <text x="395" y="132" text-anchor="middle" font-size="10" fill="#dc2626">docker stop -t 1 → SIGTERM</text>
+  <rect x="430" y="148" width="140" height="58" rx="4" fill="#fef2f2" stroke="#dc2626" stroke-width="1"/>
+  <text x="500" y="166" text-anchor="middle" font-size="10" fill="#64748b">touch heartbeat...</text>
+  <text x="500" y="180" text-anchor="middle" font-size="10" fill="#64748b">finalize outbound.db</text>
+  <text x="500" y="194" text-anchor="middle" font-size="10" fill="#64748b">exit (≤1s 否则 SIGKILL)</text>
+  <line x1="496" y1="226" x2="294" y2="226" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar72)"/>
+  <text x="395" y="220" text-anchor="middle" font-size="10" fill="#64748b">exit code</text>
+  <line x1="286" y1="246" x2="84" y2="246" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar72)"/>
+  <text x="180" y="240" font-size="10" fill="#64748b">child.on('close') fires</text>
+  <rect x="20" y="258" width="130" height="46" rx="4" fill="#ccfbf1" stroke="#0d9488" stroke-width="1.2"/>
+  <text x="85" y="276" text-anchor="middle" font-size="10" fill="currentColor">onExit() →</text>
+  <text x="85" y="290" text-anchor="middle" font-size="10" fill="currentColor">wakeContainer(B)</text>
+  <text x="85" y="302" text-anchor="middle" font-size="10" fill="#64748b">spawnContainer</text>
+  <line x1="84" y1="320" x2="286" y2="320" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar72)"/>
+  <text x="180" y="314" font-size="10" fill="#64748b">docker run --name ...</text>
+  <line x1="294" y1="340" x2="776" y2="340" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar72)"/>
+  <text x="535" y="334" font-size="10" fill="#ea580c">create container B</text>
+  <rect x="700" y="350" width="160" height="76" rx="4" fill="#ffedd5" stroke="#ea580c" stroke-width="1.5"/>
+  <text x="780" y="368" text-anchor="middle" font-size="10" fill="currentColor">touch heartbeat</text>
+  <text x="780" y="382" text-anchor="middle" font-size="10" fill="currentColor">isFirstPoll = true</text>
+  <text x="780" y="396" text-anchor="middle" font-size="10" fill="currentColor">getPendingMessages</text>
+  <text x="780" y="408" text-anchor="middle" font-size="10" fill="#16a34a">→ on_wake=1 行可见</text>
+  <text x="780" y="420" text-anchor="middle" font-size="10" fill="#16a34a">process → reply</text>
+</svg>
+<span class="figure-caption">图 R7.2 ｜ kill+respawn 时间线：on_wake=1 让 dying A（红）的尾轮 poll 自动跳过；onExit 回调串行保证 A 死透后才 spawn B（橙），B 第一次 poll 因 isFirstPoll=true 能看到 on_wake 行 — 该机制阻止"重启提示被即将下线的容器吞掉"</span>
+
+<details>
+<summary>ASCII 原版</summary>
+
 ```
 host                 docker             container A           container B
   │                    │                    │                    │
@@ -452,6 +621,8 @@ host                 docker             container A           container B
   │                    │                                         │   → 包含 on_wake=1 行
   │                    │                                         │ process → reply
 ```
+
+</details>
 
 ---
 
@@ -594,6 +765,75 @@ fi
 
 ### 7.11 小结：lifecycle 全景图
 
+<svg viewBox="0 0 880 580" xmlns="http://www.w3.org/2000/svg" class="figure-svg" role="img" aria-label="end-to-end host and container lifecycle: boot, incoming message routing through wakeContainer/spawn, container running with heartbeat and DB IO, and stopping via natural exit or kill">
+  <defs>
+    <marker id="ar73" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/></marker>
+  </defs>
+  <text x="180" y="22" text-anchor="middle" font-size="13" font-weight="700" fill="#0d9488">host process (Node)</text>
+  <text x="650" y="22" text-anchor="middle" font-size="13" font-weight="700" fill="#0ea5e9">docker daemon / container (Bun)</text>
+  <line x1="440" y1="30" x2="440" y2="560" stroke="#cbd5e1" stroke-width="1" stroke-dasharray="4,4"/>
+  <rect x="20" y="40" width="320" height="106" rx="6" fill="#ccfbf1" stroke="#0d9488" stroke-width="1.5"/>
+  <text x="180" y="58" text-anchor="middle" font-size="12" font-weight="700" fill="currentColor">boot</text>
+  <text x="32" y="78" font-size="10" fill="#64748b">1. enforceStartupBackoff</text>
+  <text x="32" y="92" font-size="10" fill="#64748b">2. initDb / migrate</text>
+  <text x="32" y="106" font-size="10" fill="#64748b">3. cleanupOrphans — docker ps --filter label</text>
+  <text x="32" y="120" font-size="10" fill="#64748b">4. ensureContainerRuntimeRunning — docker info</text>
+  <text x="32" y="134" font-size="10" fill="#64748b">5. router.start, host-sweep.start</text>
+  <line x1="340" y1="80" x2="540" y2="80" stroke="#94a3b8" stroke-width="1.2" stroke-dasharray="3,2" marker-end="url(#ar73)"/>
+  <line x1="340" y1="106" x2="540" y2="106" stroke="#94a3b8" stroke-width="1.2" stroke-dasharray="3,2" marker-end="url(#ar73)"/>
+  <text x="442" y="100" font-size="9" fill="#64748b">docker probe</text>
+  <rect x="20" y="160" width="320" height="180" rx="6" fill="#ffedd5" stroke="#ea580c" stroke-width="2"/>
+  <text x="180" y="178" text-anchor="middle" font-size="12" font-weight="700" fill="currentColor">incoming message</text>
+  <text x="32" y="198" font-size="10" fill="#64748b">channel adapter → router</text>
+  <text x="32" y="212" font-size="10" fill="#64748b">  resolveSession (create if needed)</text>
+  <text x="32" y="226" font-size="10" fill="#64748b">  writeSessionMessage(on_wake=0)</text>
+  <text x="32" y="240" font-size="10" fill="#64748b">  wakeContainer(session)</text>
+  <text x="32" y="254" font-size="10" fill="#64748b">    if running → return true</text>
+  <text x="32" y="268" font-size="10" fill="#64748b">    else spawnContainer:</text>
+  <text x="40" y="282" font-size="10" fill="#64748b">    materializeContainerJson</text>
+  <text x="40" y="296" font-size="10" fill="#64748b">    composeGroupClaudeMd</text>
+  <text x="40" y="310" font-size="10" fill="#64748b">    buildMounts + mount-security</text>
+  <text x="40" y="324" font-size="10" fill="#64748b">    OneCLI ensureAgent + applyContainerConfig</text>
+  <text x="40" y="338" font-size="10" fill="#64748b">    rm -f .heartbeat → spawn('docker', [...])</text>
+  <line x1="340" y1="320" x2="540" y2="320" stroke="#ea580c" stroke-width="1.4" marker-end="url(#ar73)"/>
+  <text x="442" y="314" font-size="10" fill="#ea580c">docker run --rm</text>
+  <rect x="540" y="160" width="320" height="180" rx="6" fill="#ffedd5" stroke="#ea580c" stroke-width="2"/>
+  <text x="700" y="178" text-anchor="middle" font-size="12" font-weight="700" fill="currentColor">container spawn</text>
+  <text x="552" y="198" font-size="10" fill="#64748b">create container (label=nanoclaw-install)</text>
+  <text x="552" y="212" font-size="10" fill="#64748b">tini PID 1 → /app/entrypoint.sh</text>
+  <text x="552" y="226" font-size="10" fill="#64748b">exec bun /app/src/index.ts</text>
+  <text x="552" y="248" font-size="10" fill="currentColor" font-weight="600">activeContainers.set</text>
+  <text x="552" y="262" font-size="10" fill="currentColor" font-weight="600">markContainerRunning</text>
+  <text x="552" y="284" font-size="10" fill="#64748b">mount tree:</text>
+  <text x="552" y="298" font-size="10" fill="#64748b">  /workspace (session, RW)</text>
+  <text x="552" y="312" font-size="10" fill="#64748b">  /workspace/agent (group, RW)</text>
+  <text x="552" y="326" font-size="10" fill="#64748b">  /app/src + /app/skills (RO overlay)</text>
+  <rect x="540" y="360" width="320" height="120" rx="6" fill="#ddd6fe" stroke="#7c3aed" stroke-width="1.5"/>
+  <text x="700" y="378" text-anchor="middle" font-size="12" font-weight="700" fill="currentColor">container running</text>
+  <text x="552" y="398" font-size="10" fill="#64748b">agent-runner poll loop:</text>
+  <text x="552" y="412" font-size="10" fill="#64748b">  open inbound.db readonly (long-lived)</text>
+  <text x="552" y="426" font-size="10" fill="#64748b">  touch /workspace/.heartbeat 每 N 秒</text>
+  <text x="552" y="440" font-size="10" fill="#64748b">  SDK query → write outbound.db</text>
+  <text x="552" y="462" font-size="10" fill="#7c3aed">host delivery (第 9 章) 读 outbound.db</text>
+  <text x="552" y="474" font-size="10" fill="#7c3aed">→ 发回 channel</text>
+  <line x1="700" y1="356" x2="700" y2="358" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ar73)"/>
+  <rect x="20" y="500" width="320" height="62" rx="6" fill="#fef2f2" stroke="#dc2626" stroke-width="1.5"/>
+  <text x="180" y="518" text-anchor="middle" font-size="12" font-weight="700" fill="currentColor">container stopping</text>
+  <text x="32" y="536" font-size="10" fill="#64748b">自然退出 | host-sweep kill | restart</text>
+  <text x="32" y="550" font-size="10" fill="#64748b">child.on('close') → activeContainers.delete</text>
+  <text x="32" y="562" font-size="10" fill="#64748b">→ markContainerStopped → onExit() if set</text>
+  <line x1="540" y1="520" x2="340" y2="530" stroke="#dc2626" stroke-width="1.2" marker-end="url(#ar73)"/>
+  <text x="395" y="514" text-anchor="middle" font-size="10" fill="#dc2626">SIGTERM / exit code</text>
+  <rect x="540" y="500" width="320" height="62" rx="6" fill="#fef2f2" stroke="#dc2626" stroke-width="1.2" stroke-dasharray="4,3"/>
+  <text x="700" y="518" text-anchor="middle" font-size="11" font-weight="600" fill="currentColor">finalize</text>
+  <text x="552" y="538" font-size="10" fill="#64748b">flush outbound.db close</text>
+  <text x="552" y="552" font-size="10" fill="#64748b">tini forwards SIGTERM → bun</text>
+</svg>
+<span class="figure-caption">图 R7.3 ｜ host/container lifecycle 全景：左半为 host process（青/橙/红依阶段），右半为容器侧（橙=spawn、紫=running、红=stopping）；中线分隔进程边界，跨线箭头标记每次 docker 交互</span>
+
+<details>
+<summary>ASCII 原版</summary>
+
 ```
 host process (Node)                                docker daemon
 ─────────────────────────────                      ─────────────
@@ -635,5 +875,7 @@ container stopping
                         stopTypingRefresh
                         onExit 回调 (若有)
 ```
+
+</details>
 
 到此 session 与 container 的两侧"骨架"建好了。下一章我们钻进容器内部，看 agent-runner 在那个 `bun run /app/src/index.ts` 之后到底做了什么。

@@ -20,6 +20,63 @@ NanoClaw 在三个维度上对 agent 不信任：
 - 注册 OneCLI 的 manual-approval callback —— 当 OneCLI hold 住一个需要审批的 request 时，NanoClaw 把审批卡发给 admin DM；
 - 复用同一套 approval primitive 处理别的审批场景（self-mod、channel-registration、sender-approval）。
 
+<svg viewBox="0 0 820 480" xmlns="http://www.w3.org/2000/svg" class="figure-svg" role="img" aria-label="OneCLI credential injection topology: host approvals primitive feeds OneCLI gateway daemon which transparently injects credentials into per-agent containers">
+  <defs>
+    <marker id="r12a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/></marker>
+  </defs>
+  <rect x="20" y="14" width="780" height="148" rx="8" fill="#ecfeff" stroke="#0d9488" stroke-width="1.5"/>
+  <text x="34" y="34" font-size="13" font-weight="700" fill="#0d9488">NanoClaw host process (Node)</text>
+  <rect x="40" y="46" width="740" height="42" rx="6" fill="#ffffff" stroke="#0d9488" stroke-width="1"/>
+  <text x="50" y="62" font-size="11" font-weight="600" fill="currentColor">src/modules/approvals/primitive.ts</text>
+  <text x="50" y="78" font-size="10" fill="#64748b">pickApprover / pickApprovalDelivery / requestApproval / registerApprovalHandler / approvalHandlers Map</text>
+  <rect x="40" y="100" width="170" height="50" rx="5" fill="#fef3c7" stroke="#94a3b8" stroke-width="1"/>
+  <text x="125" y="118" font-size="11" font-weight="600" text-anchor="middle" fill="currentColor">self-mod</text>
+  <text x="125" y="134" font-size="10" text-anchor="middle" fill="#64748b">install_packages</text>
+  <text x="125" y="146" font-size="10" text-anchor="middle" fill="#64748b">add_mcp_server</text>
+  <rect x="225" y="100" width="200" height="50" rx="5" fill="#fed7aa" stroke="#ea580c" stroke-width="1.5"/>
+  <text x="325" y="118" font-size="11" font-weight="600" text-anchor="middle" fill="currentColor">onecli-approvals.ts</text>
+  <text x="325" y="132" font-size="10" text-anchor="middle" fill="#64748b">action = onecli_credential</text>
+  <text x="325" y="146" font-size="10" text-anchor="middle" fill="#64748b">configureManualApproval(cb)</text>
+  <rect x="440" y="100" width="160" height="50" rx="5" fill="#fef3c7" stroke="#94a3b8" stroke-width="1"/>
+  <text x="520" y="118" font-size="11" font-weight="600" text-anchor="middle" fill="currentColor">channel-approval</text>
+  <text x="520" y="134" font-size="10" text-anchor="middle" fill="#64748b">unknown channel</text>
+  <text x="520" y="146" font-size="10" text-anchor="middle" fill="#64748b">first mention</text>
+  <rect x="615" y="100" width="160" height="50" rx="5" fill="#fef3c7" stroke="#94a3b8" stroke-width="1"/>
+  <text x="695" y="118" font-size="11" font-weight="600" text-anchor="middle" fill="currentColor">sender-approval</text>
+  <text x="695" y="134" font-size="10" text-anchor="middle" fill="#64748b">known channel</text>
+  <text x="695" y="146" font-size="10" text-anchor="middle" fill="#64748b">unknown sender</text>
+  <line x1="125" y1="88" x2="125" y2="100" stroke="#94a3b8" stroke-width="1" marker-end="url(#r12a)"/>
+  <line x1="325" y1="88" x2="325" y2="100" stroke="#ea580c" stroke-width="1.5" marker-end="url(#r12a)"/>
+  <line x1="520" y1="88" x2="520" y2="100" stroke="#94a3b8" stroke-width="1" marker-end="url(#r12a)"/>
+  <line x1="695" y1="88" x2="695" y2="100" stroke="#94a3b8" stroke-width="1" marker-end="url(#r12a)"/>
+  <line x1="325" y1="150" x2="325" y2="200" stroke="#ea580c" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#r12a)"/>
+  <text x="340" y="180" font-size="10" fill="#ea580c">HTTP long-poll /api/approvals/pending</text>
+  <rect x="60" y="206" width="700" height="100" rx="8" fill="#f5f3ff" stroke="#7c3aed" stroke-width="1.5"/>
+  <text x="74" y="226" font-size="13" font-weight="700" fill="#7c3aed">OneCLI gateway (daemon, http://127.0.0.1:10254)</text>
+  <text x="80" y="246" font-size="11" fill="currentColor">secrets vault — encrypted OAuth tokens / API keys, host-pattern scoped</text>
+  <text x="80" y="262" font-size="11" fill="currentColor">agent registry — per-agent secret_mode (all / selective)</text>
+  <text x="80" y="278" font-size="11" fill="currentColor">HTTP proxy + self-signed CA — transparent credential injection</text>
+  <text x="80" y="294" font-size="11" fill="currentColor">approval rules — server-side decide *when* to hold a request</text>
+  <line x1="410" y1="306" x2="410" y2="346" stroke="#7c3aed" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#r12a)"/>
+  <text x="420" y="328" font-size="10" fill="#7c3aed">HTTPS_PROXY + CA bundle injected into container</text>
+  <rect x="20" y="352" width="780" height="120" rx="8" fill="#fff7ed" stroke="#ea580c" stroke-width="1.5"/>
+  <text x="34" y="372" font-size="13" font-weight="700" fill="#ea580c">per-agent container (Docker, Bun)</text>
+  <rect x="40" y="384" width="360" height="76" rx="6" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+  <text x="50" y="400" font-size="11" font-weight="600" fill="currentColor">env</text>
+  <text x="50" y="416" font-size="10" fill="#64748b">HTTPS_PROXY=http://onecli-gateway:10254</text>
+  <text x="50" y="430" font-size="10" fill="#64748b">SSL_CERT_FILE=/onecli/ca.crt</text>
+  <text x="50" y="450" font-size="10" fill="#64748b">curl / fetch / requests / git → proxy → upstream</text>
+  <rect x="416" y="384" width="364" height="76" rx="6" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+  <text x="426" y="400" font-size="11" font-weight="600" fill="currentColor">container/skills/onecli-gateway/SKILL.md</text>
+  <text x="426" y="416" font-size="10" fill="#64748b">teaches agent: proxy is transparent</text>
+  <text x="426" y="430" font-size="10" fill="#64748b">on 401/403 → show connect_url to user</text>
+  <text x="426" y="450" font-size="10" fill="#64748b">never ask user for tokens directly</text>
+</svg>
+<span class="figure-caption">图 R12.1 ｜ OneCLI 凭证注入拓扑：host approvals primitive → OneCLI daemon vault → 容器透明代理；agent 上下文里没有任何 token 明文。</span>
+
+<details>
+<summary>ASCII 原版</summary>
+
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
 │                       NanoClaw host process                          │
@@ -68,6 +125,8 @@ NanoClaw 在三个维度上对 agent 不信任：
 │ container/skills/onecli-gateway/SKILL.md 教 agent 怎么用 + 出错处理 │
 └─────────────────────────────────────────────────────────────────────┘
 ```
+
+</details>
 
 下面分八节展开。
 
@@ -746,6 +805,51 @@ async function handleRegisteredApproval(
 
 但 **共享同一个 chat-sdk-bridge → onAction → response handler 链**。chat-sdk-bridge 不知道 questionId 指向哪个表 —— 它只负责把 (questionId, value, userId) 送上来。response handler 链按顺序试，谁先认领算谁的：
 
+<svg viewBox="0 0 820 380" xmlns="http://www.w3.org/2000/svg" class="figure-svg" role="img" aria-label="Response handler dispatch chain showing OneCLI memory resolver tried before DB pending approval lookup">
+  <defs>
+    <marker id="r12b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/></marker>
+  </defs>
+  <rect x="280" y="14" width="260" height="50" rx="6" fill="#e0f2fe" stroke="#0ea5e9" stroke-width="1.5"/>
+  <text x="410" y="34" font-size="13" font-weight="700" text-anchor="middle" fill="currentColor">dispatchResponse</text>
+  <text x="410" y="52" font-size="10" text-anchor="middle" fill="#64748b">src/index.ts:37-47 — (questionId, value, userId)</text>
+  <line x1="410" y1="64" x2="410" y2="86" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#r12b)"/>
+  <text x="420" y="80" font-size="10" fill="#64748b">try handlers in order, first to return true claims</text>
+  <rect x="30" y="96" width="240" height="60" rx="5" fill="#fef3c7" stroke="#94a3b8" stroke-width="1"/>
+  <text x="150" y="115" font-size="11" font-weight="600" text-anchor="middle" fill="currentColor">handleSenderApprovalResponse</text>
+  <text x="150" y="132" font-size="10" text-anchor="middle" fill="#64748b">permissions/index.ts:225</text>
+  <text x="150" y="146" font-size="10" text-anchor="middle" fill="#64748b">pending_sender_approvals</text>
+  <rect x="290" y="96" width="240" height="60" rx="5" fill="#fef3c7" stroke="#94a3b8" stroke-width="1"/>
+  <text x="410" y="115" font-size="11" font-weight="600" text-anchor="middle" fill="currentColor">handleChannelApprovalResponse</text>
+  <text x="410" y="132" font-size="10" text-anchor="middle" fill="#64748b">permissions/index.ts:310</text>
+  <text x="410" y="146" font-size="10" text-anchor="middle" fill="#64748b">pending_channel_approvals</text>
+  <rect x="550" y="96" width="240" height="60" rx="5" fill="#fed7aa" stroke="#ea580c" stroke-width="1.5"/>
+  <text x="670" y="115" font-size="11" font-weight="600" text-anchor="middle" fill="currentColor">handleApprovalsResponse</text>
+  <text x="670" y="132" font-size="10" text-anchor="middle" fill="#64748b">approvals/response-handler.ts:24</text>
+  <text x="670" y="146" font-size="10" text-anchor="middle" fill="#64748b">two-stage lookup ↓</text>
+  <line x1="410" y1="64" x2="150" y2="96" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#r12b)"/>
+  <line x1="410" y1="64" x2="410" y2="96" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#r12b)"/>
+  <line x1="410" y1="64" x2="670" y2="96" stroke="#ea580c" stroke-width="1.2" marker-end="url(#r12b)"/>
+  <rect x="430" y="190" width="320" height="58" rx="5" fill="#fed7aa" stroke="#ea580c" stroke-width="1"/>
+  <text x="590" y="208" font-size="11" font-weight="600" text-anchor="middle" fill="currentColor">1. resolveOneCLIApproval (in-memory)</text>
+  <text x="590" y="224" font-size="10" text-anchor="middle" fill="#64748b">pending Map → Promise.resolve(decision)</text>
+  <text x="590" y="238" font-size="10" text-anchor="middle" fill="#dc2626">time-sensitive: HTTP connection still held</text>
+  <line x1="670" y1="156" x2="590" y2="190" stroke="#ea580c" stroke-width="1.2" marker-end="url(#r12b)"/>
+  <rect x="430" y="266" width="320" height="58" rx="5" fill="#f5f3ff" stroke="#7c3aed" stroke-width="1"/>
+  <text x="590" y="284" font-size="11" font-weight="600" text-anchor="middle" fill="currentColor">2. getPendingApproval(questionId) [DB]</text>
+  <text x="590" y="300" font-size="10" text-anchor="middle" fill="#64748b">action lookup → registered handler dispatch</text>
+  <text x="590" y="314" font-size="10" text-anchor="middle" fill="#64748b">install_packages / add_mcp_server / ...</text>
+  <line x1="590" y1="248" x2="590" y2="266" stroke="#7c3aed" stroke-width="1.2" marker-end="url(#r12b)"/>
+  <rect x="50" y="280" width="320" height="80" rx="6" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1" stroke-dasharray="3,2"/>
+  <text x="210" y="300" font-size="11" font-weight="600" text-anchor="middle" fill="#64748b">return false ⇒ pass to next handler</text>
+  <text x="60" y="320" font-size="10" fill="#64748b">"I do not claim this questionId" — questionId</text>
+  <text x="60" y="334" font-size="10" fill="#64748b">lives in only one pending table; chain order</text>
+  <text x="60" y="348" font-size="10" fill="#64748b">determined by module import order in src/index.ts.</text>
+</svg>
+<span class="figure-caption">图 R12.2 ｜ Response handler dispatch chain：OneCLI 内存 resolver 优先于 DB lookup，因为 HTTP 连接还挂着等决定。</span>
+
+<details>
+<summary>ASCII 原版</summary>
+
 ```
 dispatchResponse (src/index.ts:37-47)
   ├─ handleSenderApprovalResponse    (permissions/index.ts:225)
@@ -755,6 +859,8 @@ dispatchResponse (src/index.ts:37-47)
   │     └─ getPendingApproval(questionId) (DB → action handler dispatch)
   └─ ... (其他模块注册的)
 ```
+
+</details>
 
 `registerResponseHandler` 在各模块 import 时按 import 顺序注册（`src/index.ts` 第 49-55 行 import 顺序决定）。
 
@@ -1034,6 +1140,73 @@ agent 出错时怎么办（同文件 56-71 行）：
 
 把这章涉及的所有部件按照"一个 admin approve OneCLI credential request"的全路径走一遍：
 
+<svg viewBox="0 0 820 600" xmlns="http://www.w3.org/2000/svg" class="figure-svg" role="img" aria-label="End-to-end OneCLI credential approval round-trip from agent curl to admin click to upstream injection">
+  <defs>
+    <marker id="r12c" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/></marker>
+  </defs>
+  <line x1="100" y1="34" x2="100" y2="580" stroke="#cbd5e1" stroke-width="1" stroke-dasharray="3,2"/>
+  <line x1="280" y1="34" x2="280" y2="580" stroke="#cbd5e1" stroke-width="1" stroke-dasharray="3,2"/>
+  <line x1="460" y1="34" x2="460" y2="580" stroke="#cbd5e1" stroke-width="1" stroke-dasharray="3,2"/>
+  <line x1="640" y1="34" x2="640" y2="580" stroke="#cbd5e1" stroke-width="1" stroke-dasharray="3,2"/>
+  <line x1="780" y1="34" x2="780" y2="580" stroke="#cbd5e1" stroke-width="1" stroke-dasharray="3,2"/>
+  <rect x="40" y="14" width="120" height="22" rx="4" fill="#fff7ed" stroke="#ea580c" stroke-width="1.5"/>
+  <text x="100" y="30" font-size="11" font-weight="600" text-anchor="middle" fill="#ea580c">container agent</text>
+  <rect x="220" y="14" width="120" height="22" rx="4" fill="#f5f3ff" stroke="#7c3aed" stroke-width="1.5"/>
+  <text x="280" y="30" font-size="11" font-weight="600" text-anchor="middle" fill="#7c3aed">OneCLI gateway</text>
+  <rect x="400" y="14" width="120" height="22" rx="4" fill="#ecfeff" stroke="#0d9488" stroke-width="1.5"/>
+  <text x="460" y="30" font-size="11" font-weight="600" text-anchor="middle" fill="#0d9488">NanoClaw host</text>
+  <rect x="580" y="14" width="120" height="22" rx="4" fill="#e0f2fe" stroke="#0ea5e9" stroke-width="1.5"/>
+  <text x="640" y="30" font-size="11" font-weight="600" text-anchor="middle" fill="#0ea5e9">chat-sdk-bridge</text>
+  <rect x="720" y="14" width="80" height="22" rx="4" fill="#e0f2fe" stroke="#0ea5e9" stroke-width="1.5"/>
+  <text x="760" y="30" font-size="11" font-weight="600" text-anchor="middle" fill="#0ea5e9">admin DM</text>
+  <line x1="100" y1="60" x2="280" y2="60" stroke="#ea580c" stroke-width="1.5" marker-end="url(#r12c)"/>
+  <text x="190" y="55" font-size="10" text-anchor="middle" fill="#64748b">1. curl api.stripe.com/v1/charges via HTTPS_PROXY</text>
+  <rect x="220" y="74" width="240" height="36" rx="4" fill="#f5f3ff" stroke="#7c3aed" stroke-width="1"/>
+  <text x="340" y="89" font-size="10" text-anchor="middle" fill="currentColor">2. rule match: host=stripe AND POST → approve</text>
+  <text x="340" y="102" font-size="10" text-anchor="middle" fill="#64748b">hold connection, emit ApprovalRequest</text>
+  <line x1="340" y1="116" x2="460" y2="140" stroke="#7c3aed" stroke-width="1.5" stroke-dasharray="3,2" marker-end="url(#r12c)"/>
+  <text x="400" y="132" font-size="10" fill="#7c3aed">SDK long-poll</text>
+  <rect x="320" y="150" width="280" height="118" rx="4" fill="#ecfeff" stroke="#0d9488" stroke-width="1"/>
+  <text x="460" y="166" font-size="11" font-weight="600" text-anchor="middle" fill="currentColor">3. handleRequest(request)</text>
+  <text x="330" y="184" font-size="10" fill="#64748b">• reverse-lookup agent_group via externalId</text>
+  <text x="330" y="198" font-size="10" fill="#64748b">• pickApprover(agentGroupId)</text>
+  <text x="330" y="212" font-size="10" fill="#64748b">• pickApprovalDelivery → ensureUserDm</text>
+  <text x="330" y="226" font-size="10" fill="#64748b">• shortApprovalId() — 10B for Telegram</text>
+  <text x="330" y="240" font-size="10" fill="#64748b">• createPendingApproval row (DB)</text>
+  <text x="330" y="254" font-size="10" fill="#64748b">• new Promise + setTimeout(expires-1s)</text>
+  <line x1="460" y1="268" x2="640" y2="288" stroke="#0d9488" stroke-width="1.5" marker-end="url(#r12c)"/>
+  <text x="550" y="282" font-size="10" fill="#64748b">deliver outbound row</text>
+  <rect x="560" y="296" width="220" height="36" rx="4" fill="#e0f2fe" stroke="#0ea5e9" stroke-width="1"/>
+  <text x="670" y="312" font-size="11" font-weight="600" text-anchor="middle" fill="currentColor">4. render embed + buttons</text>
+  <text x="670" y="324" font-size="10" text-anchor="middle" fill="#64748b">postMessage to admin DM</text>
+  <line x1="780" y1="314" x2="780" y2="346" stroke="#0ea5e9" stroke-width="1.5" marker-end="url(#r12c)"/>
+  <rect x="700" y="346" width="100" height="42" rx="4" fill="#e0f2fe" stroke="#0ea5e9" stroke-width="1.5"/>
+  <text x="750" y="362" font-size="11" font-weight="600" text-anchor="middle" fill="currentColor">5. admin sees</text>
+  <text x="750" y="378" font-size="11" font-weight="700" text-anchor="middle" fill="#16a34a">click Approve</text>
+  <line x1="700" y1="370" x2="640" y2="402" stroke="#0ea5e9" stroke-width="1.5" marker-end="url(#r12c)"/>
+  <rect x="560" y="404" width="220" height="36" rx="4" fill="#e0f2fe" stroke="#0ea5e9" stroke-width="1"/>
+  <text x="670" y="420" font-size="11" font-weight="600" text-anchor="middle" fill="currentColor">6. chat.onAction fires</text>
+  <text x="670" y="432" font-size="10" text-anchor="middle" fill="#64748b">setupConfig.onAction(id, approve, uid)</text>
+  <line x1="560" y1="422" x2="460" y2="452" stroke="#0ea5e9" stroke-width="1.5" marker-end="url(#r12c)"/>
+  <rect x="320" y="450" width="280" height="64" rx="4" fill="#fed7aa" stroke="#ea580c" stroke-width="1.5"/>
+  <text x="460" y="466" font-size="11" font-weight="600" text-anchor="middle" fill="currentColor">7. resolveOneCLIApproval (in-memory!)</text>
+  <text x="330" y="484" font-size="10" fill="#64748b">find pending Map entry → clearTimeout</text>
+  <text x="330" y="498" font-size="10" fill="#64748b">updateStatus(approved) + delete row</text>
+  <text x="330" y="510" font-size="10" fill="#64748b">state.resolve('approve') → SDK callback</text>
+  <line x1="320" y1="478" x2="280" y2="528" stroke="#ea580c" stroke-width="1.5" stroke-dasharray="3,2" marker-end="url(#r12c)"/>
+  <text x="190" y="500" font-size="10" fill="#ea580c">8. SDK POST decision back</text>
+  <rect x="220" y="528" width="220" height="36" rx="4" fill="#f5f3ff" stroke="#7c3aed" stroke-width="1.5"/>
+  <text x="330" y="544" font-size="11" font-weight="600" text-anchor="middle" fill="currentColor">9. inject Authorization header</text>
+  <text x="330" y="556" font-size="10" text-anchor="middle" fill="#64748b">forward to api.stripe.com</text>
+  <line x1="220" y1="546" x2="100" y2="572" stroke="#7c3aed" stroke-width="1.5" marker-end="url(#r12c)"/>
+  <rect x="40" y="568" width="120" height="22" rx="4" fill="#f0fdf4" stroke="#16a34a" stroke-width="1.5"/>
+  <text x="100" y="584" font-size="11" font-weight="600" text-anchor="middle" fill="#16a34a">10. 200 OK to curl</text>
+</svg>
+<span class="figure-caption">图 R12.3 ｜ OneCLI 凭证审批端到端时序：10 步 round-trip 中凭证从未出 vault、从未进 agent context、admin 只看到 metadata。</span>
+
+<details>
+<summary>ASCII 原版</summary>
+
 ```
 1. agent (container)  →  curl https://api.stripe.com/v1/charges
                          走 HTTPS_PROXY，转给 OneCLI gateway
@@ -1077,6 +1250,8 @@ agent 出错时怎么办（同文件 56-71 行）：
 
 10. agent             →  正常拿到响应，继续干活
 ```
+
+</details>
 
 整套链路里：
 

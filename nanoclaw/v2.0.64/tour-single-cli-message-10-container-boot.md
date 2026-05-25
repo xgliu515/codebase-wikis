@@ -68,7 +68,87 @@ const provider = createProvider(process.env.NANOCLAW_PROVIDER as ProviderName, {
 
 ## 5. NanoClaw 的做法
 
-每次 spawn 容器前，host 把 per-agent-group 配置**物化**成 `/workspace/agent/container.json`（RO bind mount），容器 boot 时读这一个文件就拿到全部 per-group 差异。具体路径：
+每次 spawn 容器前，host 把 per-agent-group 配置**物化**成 `/workspace/agent/container.json`（RO bind mount），容器 boot 时读这一个文件就拿到全部 per-group 差异。
+
+<svg viewBox="0 0 820 360" xmlns="http://www.w3.org/2000/svg" class="figure-svg" role="img" aria-label="Container boot pipeline from tini PID1 to poll loop with config sources">
+  <defs>
+    <marker id="boot-ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/></marker>
+  </defs>
+  <text x="410" y="20" font-size="13" font-weight="700" fill="currentColor" text-anchor="middle">Container boot (entrypoint.sh → index.ts → runPollLoop)</text>
+  <rect x="20" y="40" width="180" height="290" rx="6" fill="#fef3c7" stroke="#ea580c" stroke-width="1.2"/>
+  <text x="110" y="60" font-size="12" font-weight="700" fill="#9a3412" text-anchor="middle">Mounted (RO) by host</text>
+  <rect x="34" y="76" width="152" height="38" rx="4" fill="#ffffff" stroke="#fcd34d"/>
+  <text x="110" y="92" font-size="11" font-weight="600" fill="currentColor" text-anchor="middle">/workspace/agent/</text>
+  <text x="110" y="106" font-size="10" fill="#64748b" text-anchor="middle">container.json + CLAUDE.md</text>
+  <rect x="34" y="120" width="152" height="38" rx="4" fill="#ffffff" stroke="#fcd34d"/>
+  <text x="110" y="136" font-size="11" font-weight="600" fill="currentColor" text-anchor="middle">/workspace/inbound.db</text>
+  <text x="110" y="150" font-size="10" fill="#64748b" text-anchor="middle">readonly (host writes)</text>
+  <rect x="34" y="164" width="152" height="38" rx="4" fill="#ffffff" stroke="#fcd34d"/>
+  <text x="110" y="180" font-size="11" font-weight="600" fill="currentColor" text-anchor="middle">/workspace/outbound.db</text>
+  <text x="110" y="194" font-size="10" fill="#64748b" text-anchor="middle">read+write (container)</text>
+  <rect x="34" y="208" width="152" height="38" rx="4" fill="#ffffff" stroke="#fcd34d"/>
+  <text x="110" y="224" font-size="11" font-weight="600" fill="currentColor" text-anchor="middle">/app/src/ (code RO)</text>
+  <text x="110" y="238" font-size="10" fill="#64748b" text-anchor="middle">+ /app/CLAUDE.md (base)</text>
+  <rect x="34" y="252" width="152" height="38" rx="4" fill="#ffffff" stroke="#fcd34d"/>
+  <text x="110" y="268" font-size="11" font-weight="600" fill="currentColor" text-anchor="middle">/workspace/extra/*</text>
+  <text x="110" y="282" font-size="10" fill="#64748b" text-anchor="middle">extra additional dirs</text>
+  <text x="110" y="316" font-size="10" fill="#94a3b8" text-anchor="middle">per-agent-group materialised</text>
+  <rect x="240" y="40" width="560" height="290" rx="6" fill="#ffffff" stroke="#cbd5e1"/>
+  <text x="520" y="60" font-size="12" font-weight="700" fill="currentColor" text-anchor="middle">PID 1 tini   →   bun run /app/src/index.ts &lt; /tmp/input.json</text>
+  <rect x="260" y="78" width="160" height="56" rx="6" fill="#fef3c7" stroke="#ea580c"/>
+  <text x="340" y="98" font-size="11" font-weight="700" fill="currentColor" text-anchor="middle">1. loadConfig()</text>
+  <text x="340" y="114" font-size="10" fill="#64748b" text-anchor="middle">read container.json</text>
+  <text x="340" y="126" font-size="10" fill="#64748b" text-anchor="middle">model · effort · mcpServers</text>
+  <rect x="440" y="78" width="160" height="56" rx="6" fill="#fef3c7" stroke="#ea580c"/>
+  <text x="520" y="98" font-size="11" font-weight="700" fill="currentColor" text-anchor="middle">2. providers/index.ts</text>
+  <text x="520" y="114" font-size="10" fill="#64748b" text-anchor="middle">import side-effect</text>
+  <text x="520" y="126" font-size="10" fill="#64748b" text-anchor="middle">registerProvider() ×N</text>
+  <rect x="620" y="78" width="160" height="56" rx="6" fill="#fef3c7" stroke="#ea580c"/>
+  <text x="700" y="98" font-size="11" font-weight="700" fill="currentColor" text-anchor="middle">3. system prompt</text>
+  <text x="700" y="114" font-size="10" fill="#64748b" text-anchor="middle">base + per-group +</text>
+  <text x="700" y="126" font-size="10" fill="#64748b" text-anchor="middle">addendum (identity)</text>
+  <line x1="420" y1="106" x2="438" y2="106" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#boot-ar)"/>
+  <line x1="600" y1="106" x2="618" y2="106" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#boot-ar)"/>
+  <rect x="260" y="152" width="160" height="56" rx="6" fill="#fef3c7" stroke="#ea580c"/>
+  <text x="340" y="172" font-size="11" font-weight="700" fill="currentColor" text-anchor="middle">4. scan extra dirs</text>
+  <text x="340" y="188" font-size="10" fill="#64748b" text-anchor="middle">→ additionalDirectories</text>
+  <rect x="440" y="152" width="160" height="56" rx="6" fill="#fef3c7" stroke="#ea580c"/>
+  <text x="520" y="172" font-size="11" font-weight="700" fill="currentColor" text-anchor="middle">5. merge mcpServers</text>
+  <text x="520" y="188" font-size="10" fill="#64748b" text-anchor="middle">builtin + per-group</text>
+  <rect x="620" y="152" width="160" height="56" rx="6" fill="#fef3c7" stroke="#ea580c"/>
+  <text x="700" y="172" font-size="11" font-weight="700" fill="currentColor" text-anchor="middle">6. createProvider()</text>
+  <text x="700" y="188" font-size="10" fill="#64748b" text-anchor="middle">factory lookup → closure</text>
+  <line x1="420" y1="180" x2="438" y2="180" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#boot-ar)"/>
+  <line x1="600" y1="180" x2="618" y2="180" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#boot-ar)"/>
+  <rect x="260" y="232" width="520" height="58" rx="6" fill="#ecfdf5" stroke="#16a34a" stroke-width="1.5"/>
+  <text x="520" y="252" font-size="12" font-weight="700" fill="currentColor" text-anchor="middle">7. runPollLoop({ provider, cwd:/workspace/agent, systemContext })</text>
+  <text x="520" y="270" font-size="11" fill="#64748b" text-anchor="middle">never returns · DB connection lazy-open on first getInboundDb()/getOutboundDb()</text>
+  <text x="520" y="282" font-size="10" fill="#94a3b8" text-anchor="middle">inbound readonly · outbound rw · pragmas: busy_timeout=5000 mmap=0 journal=DELETE</text>
+  <rect x="260" y="300" width="520" height="22" rx="3" fill="#7c3aed" opacity="0.12" stroke="#7c3aed" stroke-width="0.8" stroke-dasharray="3,2"/>
+  <text x="520" y="316" font-size="10" fill="#7c3aed" text-anchor="middle">→ next step: step 11 poll loop iteration</text>
+  <line x1="200" y1="106" x2="258" y2="106" stroke="#0d9488" stroke-width="1.2" stroke-dasharray="3,2" marker-end="url(#boot-ar)"/>
+  <line x1="200" y1="180" x2="258" y2="180" stroke="#0d9488" stroke-width="1.2" stroke-dasharray="3,2" marker-end="url(#boot-ar)"/>
+  <line x1="200" y1="260" x2="258" y2="260" stroke="#0d9488" stroke-width="1.2" stroke-dasharray="3,2" marker-end="url(#boot-ar)"/>
+</svg>
+<span class="figure-caption">图 T1.20 ｜ 容器 boot 阶段图：host 物化的 5 个挂载点（左）→ index.ts 的 7 步初始化 → runPollLoop 进入 poll 循环（DB 连接 lazy-open）。</span>
+
+<details>
+<summary>ASCII 原版</summary>
+
+```
+[mounted by host]                  [bun process inside container]
+/workspace/agent/container.json --> loadConfig() ──┐
+/app/CLAUDE.md (base)              import providers/index.js (self-register)
+/workspace/agent/CLAUDE.md         buildSystemPromptAddendum()
+/workspace/extra/*                 scan extra → additionalDirectories
+/workspace/inbound.db (RO)         merge builtin + per-group mcpServers
+/workspace/outbound.db (RW)        createProvider(name, opts)
+                                   └──> runPollLoop({...})  (never returns)
+```
+
+</details>
+
+具体路径：
 
 **5.1 `loadConfig()`——一次性读 container.json**
 

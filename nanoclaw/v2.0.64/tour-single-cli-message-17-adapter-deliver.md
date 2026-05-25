@@ -57,6 +57,81 @@ const platformMsgId = await deliveryAdapter.deliver(
 
 ## 5. nanoclaw 的做法：no-op + 短路 + 不抛
 
+<svg viewBox="0 0 820 380" xmlns="http://www.w3.org/2000/svg" class="figure-svg" role="img" aria-label="CLI adapter deliver decision tree: 4 short-circuits and silent no-op when client null">
+  <defs>
+    <marker id="ad-ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/></marker>
+  </defs>
+  <text x="410" y="20" font-size="13" font-weight="700" fill="currentColor" text-anchor="middle">cliAdapter.deliver() — 4 short-circuits, never throws to delivery</text>
+  <rect x="320" y="40" width="180" height="46" rx="6" fill="#fef3c7" stroke="#ea580c" stroke-width="1.5"/>
+  <text x="410" y="58" font-size="11" font-weight="700" fill="currentColor" text-anchor="middle">deliver(platformId,</text>
+  <text x="410" y="72" font-size="11" font-weight="700" fill="currentColor" text-anchor="middle">_threadId, message)</text>
+  <line x1="410" y1="88" x2="410" y2="100" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ad-ar)"/>
+  <polygon points="380,100 440,100 460,120 440,140 380,140 360,120" fill="#ffffff" stroke="#0d9488"/>
+  <text x="410" y="125" font-size="10" fill="currentColor" text-anchor="middle">platformId == 'local'?</text>
+  <line x1="360" y1="120" x2="240" y2="120" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ad-ar)"/>
+  <text x="300" y="113" font-size="10" fill="#dc2626" text-anchor="middle" font-weight="600">no</text>
+  <rect x="80" y="100" width="160" height="40" rx="4" fill="#fef2f2" stroke="#dc2626"/>
+  <text x="160" y="118" font-size="11" font-weight="600" fill="currentColor" text-anchor="middle">① return undefined</text>
+  <text x="160" y="132" font-size="9" fill="#94a3b8" text-anchor="middle">defensive — wrong platform</text>
+  <line x1="410" y1="140" x2="410" y2="156" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ad-ar)"/>
+  <text x="425" y="152" font-size="10" fill="#16a34a">yes</text>
+  <polygon points="370,156 450,156 470,180 450,204 370,204 350,180" fill="#ffffff" stroke="#0d9488"/>
+  <text x="410" y="184" font-size="10" fill="currentColor" text-anchor="middle">client != null?</text>
+  <line x1="350" y1="180" x2="240" y2="180" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ad-ar)"/>
+  <text x="300" y="173" font-size="10" fill="#dc2626" text-anchor="middle" font-weight="600">no</text>
+  <rect x="60" y="160" width="180" height="50" rx="4" fill="#fef3c7" stroke="#ea580c" stroke-width="1.5"/>
+  <text x="150" y="178" font-size="11" font-weight="700" fill="currentColor" text-anchor="middle">② SILENT NO-OP</text>
+  <text x="150" y="192" font-size="9" fill="#64748b" text-anchor="middle">user Ctrl-C'd · row already</text>
+  <text x="150" y="204" font-size="9" fill="#64748b" text-anchor="middle">persisted, not data loss</text>
+  <line x1="410" y1="204" x2="410" y2="220" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ad-ar)"/>
+  <text x="425" y="216" font-size="10" fill="#16a34a">yes</text>
+  <polygon points="350,220 470,220 490,240 470,260 350,260 330,240" fill="#ffffff" stroke="#0d9488"/>
+  <text x="410" y="244" font-size="10" fill="currentColor" text-anchor="middle">extractText() != null?</text>
+  <line x1="490" y1="240" x2="600" y2="240" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ad-ar)"/>
+  <text x="545" y="233" font-size="10" fill="#dc2626" text-anchor="middle" font-weight="600">no (card)</text>
+  <rect x="600" y="220" width="180" height="40" rx="4" fill="#fef2f2" stroke="#dc2626"/>
+  <text x="690" y="238" font-size="11" font-weight="600" fill="currentColor" text-anchor="middle">④ return undefined</text>
+  <text x="690" y="252" font-size="9" fill="#94a3b8" text-anchor="middle">CLI can't render card</text>
+  <line x1="410" y1="260" x2="410" y2="276" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ad-ar)"/>
+  <text x="425" y="272" font-size="10" fill="#16a34a">yes</text>
+  <rect x="270" y="278" width="280" height="52" rx="4" fill="#ecfdf5" stroke="#16a34a" stroke-width="1.5"/>
+  <text x="410" y="296" font-size="11" font-weight="700" fill="currentColor" text-anchor="middle">⑤ try { client.write(JSON+'\n') }</text>
+  <text x="410" y="312" font-size="10" fill="#64748b" text-anchor="middle">catch { log.warn — DO NOT throw }</text>
+  <text x="410" y="324" font-size="9" fill="#94a3b8" text-anchor="middle">⑦ return undefined (no platform_message_id)</text>
+  <line x1="270" y1="304" x2="240" y2="304" stroke="#dc2626" stroke-width="1.2" stroke-dasharray="3,2" marker-end="url(#ad-ar)"/>
+  <text x="255" y="298" font-size="9" fill="#dc2626" text-anchor="middle" font-weight="600">⑥ ERR_STREAM_</text>
+  <text x="255" y="310" font-size="9" fill="#dc2626" text-anchor="middle" font-weight="600">DESTROYED</text>
+  <rect x="40" y="290" width="200" height="36" rx="4" fill="#fef3c7" stroke="#ea580c"/>
+  <text x="140" y="306" font-size="10" font-weight="600" fill="currentColor" text-anchor="middle">log.warn → SWALLOW</text>
+  <text x="140" y="320" font-size="9" fill="#64748b" text-anchor="middle">delivery sees success</text>
+  <rect x="20" y="346" width="780" height="28" rx="4" fill="#ddd6fe" stroke="#7c3aed" stroke-width="1.2"/>
+  <text x="410" y="364" font-size="11" font-weight="700" fill="currentColor" text-anchor="middle">vs Discord adapter: would THROW on network failure → delivery retries 3× → markDeliveryFailed</text>
+</svg>
+<span class="figure-caption">图 T1.27 ｜ CLI adapter.deliver 决策树：4 道短路（错 platform · client 已断 · 非文本 · write 抛错）都返回 undefined / swallow，绝不向上游 throw——因为 outbound 行已落库就是"已发"，与 Discord 的"打算发"语义不同。</span>
+
+<details>
+<summary>ASCII 原版</summary>
+
+```
+deliver(platformId, _threadId, message)
+   │
+   ├─[platformId != 'local']────► ① return undefined (defensive)
+   │
+   ├─[!client (user disconnected)]► ② SILENT NO-OP — return undefined
+   │                                  (row already persisted → not data loss)
+   │
+   ├─[extractText() == null]──────► ④ return undefined (card, can't render)
+   │
+   ▼
+   try { client.write(JSON.stringify({text}) + '\n') }
+   catch (ERR_STREAM_DESTROYED) { ⑥ log.warn — DO NOT throw }
+   ⑦ return undefined  (CLI has no platform_message_id)
+
+  vs Discord adapter: throw on network failure → 3× retry → markDeliveryFailed
+```
+
+</details>
+
 `src/channels/cli.ts:119-135` 的 `deliver()` 函数体就 17 行：
 
 ```ts

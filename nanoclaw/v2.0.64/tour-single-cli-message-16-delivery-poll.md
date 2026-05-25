@@ -75,6 +75,66 @@ export async function deliverSessionMessages(session: Session): Promise<void> {
 
 注释里写得很直白（`src/delivery.ts:37-49`）：active poll 和 sweep poll 的结果集会重叠 —— 一个 running session 同时在两个集合里。没有这把锁，两条循环同 tick 会**双投递**（用户在终端看到两遍 "pong"）。SQL 层的 `INSERT OR IGNORE` 只能保证 DB 状态幂等，不能阻止 adapter 已经把字节写出去了。这把锁的设计哲学是 **drop, don't queue**：第二次调用直接丢，下一秒的 tick 会捡起任何没投递完的。
 
+<svg viewBox="0 0 820 360" xmlns="http://www.w3.org/2000/svg" class="figure-svg" role="img" aria-label="Two delivery loops at 1s and 60s with inflight mutex preventing double delivery">
+  <defs>
+    <marker id="dp-ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/></marker>
+  </defs>
+  <text x="410" y="20" font-size="13" font-weight="700" fill="currentColor" text-anchor="middle">delivery.ts — two-rate pull + per-session mutex</text>
+  <text x="60" y="48" font-size="10" fill="#94a3b8">t=</text>
+  <line x1="80" y1="44" x2="780" y2="44" stroke="#cbd5e1"/>
+  <text x="120" y="36" font-size="9" fill="#64748b">0s</text>
+  <text x="260" y="36" font-size="9" fill="#64748b">1</text>
+  <text x="400" y="36" font-size="9" fill="#64748b">2</text>
+  <text x="540" y="36" font-size="9" fill="#64748b">…</text>
+  <text x="680" y="36" font-size="9" fill="#64748b">60s</text>
+  <rect x="20" y="62" width="780" height="80" rx="6" fill="#0ea5e9" opacity="0.10" stroke="#0ea5e9" stroke-width="1.2"/>
+  <text x="30" y="80" font-size="11" font-weight="700" fill="#0369a1">pollActive — 1s · sessions WHERE container_status IN ('running','idle')</text>
+  <line x1="120" y1="118" x2="780" y2="118" stroke="#0ea5e9" stroke-width="2"/>
+  <circle cx="120" cy="118" r="6" fill="#0ea5e9"/>
+  <circle cx="260" cy="118" r="6" fill="#0ea5e9"/>
+  <circle cx="400" cy="118" r="6" fill="#0ea5e9"/>
+  <circle cx="540" cy="118" r="6" fill="#0ea5e9"/>
+  <text x="260" y="106" font-size="9" fill="#64748b" text-anchor="middle">happy path: scans every 1s</text>
+  <text x="540" y="134" font-size="10" fill="#16a34a" text-anchor="middle" font-weight="600">finds our 'pong' row → enters drainSession</text>
+  <rect x="20" y="156" width="780" height="80" rx="6" fill="#fef3c7" stroke="#ea580c" stroke-width="1.2"/>
+  <text x="30" y="174" font-size="11" font-weight="700" fill="#9a3412">pollSweep — 60s · ALL sessions WHERE status='active'</text>
+  <line x1="120" y1="212" x2="780" y2="212" stroke="#ea580c" stroke-width="2" stroke-dasharray="6,4"/>
+  <circle cx="120" cy="212" r="6" fill="#ea580c"/>
+  <circle cx="680" cy="212" r="8" fill="#ea580c"/>
+  <text x="680" y="232" font-size="10" fill="#64748b" text-anchor="middle">robustness fallback</text>
+  <text x="400" y="200" font-size="10" fill="#64748b" text-anchor="middle">covers reaped containers that wrote outbound at shutdown</text>
+  <rect x="20" y="250" width="780" height="100" rx="6" fill="#ddd6fe" stroke="#7c3aed" stroke-width="1.2"/>
+  <text x="30" y="268" font-size="11" font-weight="700" fill="#5b21b6">overlap window — both loops would race on the same running session</text>
+  <rect x="120" y="280" width="280" height="60" rx="4" fill="#ffffff" stroke="#a78bfa"/>
+  <text x="260" y="298" font-size="11" font-weight="700" fill="currentColor" text-anchor="middle">inflightDeliveries: Set&lt;session_id&gt;</text>
+  <text x="260" y="312" font-size="10" fill="#64748b" text-anchor="middle">if (has(id)) return;  // DROP, don't queue</text>
+  <text x="260" y="326" font-size="10" fill="#64748b" text-anchor="middle">add → drainSession() → finally delete</text>
+  <rect x="420" y="280" width="370" height="60" rx="4" fill="#ffffff" stroke="#a78bfa"/>
+  <text x="605" y="298" font-size="11" font-weight="700" fill="currentColor" text-anchor="middle">layered idempotency (defence in depth)</text>
+  <text x="605" y="312" font-size="10" fill="#64748b" text-anchor="middle">1. inflightDeliveries Set — JS-level lock</text>
+  <text x="605" y="326" font-size="10" fill="#64748b" text-anchor="middle">2. inbound.delivered INSERT OR IGNORE — DB-level constraint</text>
+  <line x1="540" y1="220" x2="540" y2="258" stroke="#94a3b8" stroke-width="1.2" stroke-dasharray="3,2" marker-end="url(#dp-ar)"/>
+  <line x1="540" y1="124" x2="540" y2="252" stroke="#94a3b8" stroke-width="1" stroke-dasharray="3,2" opacity="0.5"/>
+</svg>
+<span class="figure-caption">图 T1.26 ｜ delivery 双速率 pull：蓝色 active loop 1s 扫 running session（happy path）+ 橙色 sweep loop 60s 扫所有 active session（robust 兜底）。两 loop 重叠靠 inflightDeliveries Set 互斥（drop, don't queue）+ DB INSERT OR IGNORE 防双投递。</span>
+
+<details>
+<summary>ASCII 原版</summary>
+
+```
+t = 0s    1     2     3    ...  60s
+       ────●─────●─────●─────●─────●──────  pollActive (1s, running/idle sessions)
+                                       finds 'pong' row → drainSession
+
+       ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─  pollSweep (60s, ALL active sessions)
+                                                fallback for reaped containers
+
+   overlap → inflightDeliveries: Set<session_id>  (drop, don't queue)
+            └── drainSession ── INSERT OR IGNORE INTO delivered (DB constraint)
+```
+
+</details>
+
 `drainSession` 的主体（`src/delivery.ts:164-232`）是一段非常对称的代码：
 
 ```ts

@@ -77,6 +77,93 @@ NanoClaw 用 **三个独立信号** 综合判断：
 
 ## 5. NanoClaw 的做法
 
+<svg viewBox="0 0 820 420" xmlns="http://www.w3.org/2000/svg" class="figure-svg" role="img" aria-label="One iteration of poll-loop: pending fetch, gates, claim ack, hand to formatter">
+  <defs>
+    <marker id="pl-ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/></marker>
+  </defs>
+  <text x="410" y="20" font-size="13" font-weight="700" fill="currentColor" text-anchor="middle">runPollLoop() — one iteration of the while(true)</text>
+  <rect x="20" y="40" width="170" height="360" rx="6" fill="#fef3c7" stroke="#ea580c" stroke-width="1.2"/>
+  <text x="105" y="58" font-size="11" font-weight="700" fill="#9a3412" text-anchor="middle">container (Bun)</text>
+  <rect x="32" y="70" width="146" height="46" rx="4" fill="#ffffff" stroke="#fcd34d"/>
+  <text x="105" y="86" font-size="11" font-weight="600" fill="currentColor" text-anchor="middle">inbound.db (RO)</text>
+  <text x="105" y="100" font-size="10" fill="#64748b" text-anchor="middle">messages_in</text>
+  <text x="105" y="112" font-size="10" fill="#94a3b8" text-anchor="middle">'ping' seq=2 pending</text>
+  <rect x="32" y="124" width="146" height="46" rx="4" fill="#ffffff" stroke="#fcd34d"/>
+  <text x="105" y="140" font-size="11" font-weight="600" fill="currentColor" text-anchor="middle">outbound.db (RW)</text>
+  <text x="105" y="154" font-size="10" fill="#64748b" text-anchor="middle">processing_ack</text>
+  <text x="105" y="166" font-size="10" fill="#94a3b8" text-anchor="middle">claim / progress signal</text>
+  <rect x="32" y="178" width="146" height="46" rx="4" fill="#ffffff" stroke="#fcd34d"/>
+  <text x="105" y="194" font-size="11" font-weight="600" fill="currentColor" text-anchor="middle">.heartbeat file</text>
+  <text x="105" y="208" font-size="10" fill="#64748b" text-anchor="middle">mtime touched per</text>
+  <text x="105" y="220" font-size="10" fill="#94a3b8" text-anchor="middle">SDK event</text>
+  <text x="105" y="260" font-size="10" fill="#7c3aed" text-anchor="middle" font-weight="600">3 independent</text>
+  <text x="105" y="274" font-size="10" fill="#7c3aed" text-anchor="middle" font-weight="600">stuck signals</text>
+  <text x="105" y="296" font-size="10" fill="#64748b" text-anchor="middle">+ container_state</text>
+  <text x="105" y="310" font-size="10" fill="#64748b" text-anchor="middle">tool_started_at</text>
+  <text x="105" y="324" font-size="10" fill="#64748b" text-anchor="middle">tool_declared_</text>
+  <text x="105" y="336" font-size="10" fill="#64748b" text-anchor="middle">timeout_ms</text>
+  <rect x="220" y="50" width="580" height="60" rx="6" fill="#fef3c7" stroke="#ea580c"/>
+  <text x="510" y="70" font-size="12" font-weight="700" fill="currentColor" text-anchor="middle">getPendingMessages(isFirstPoll)  →  filter kind != 'system'</text>
+  <text x="510" y="86" font-size="10" fill="#64748b" text-anchor="middle">WHERE status='pending' AND (process_after IS NULL OR ...) AND (on_wake=0 OR isFirstPoll=1)</text>
+  <text x="510" y="100" font-size="10" fill="#64748b" text-anchor="middle">ORDER BY seq DESC LIMIT N · then LEFT EXCEPT processing_ack · then .reverse()</text>
+  <line x1="190" y1="80" x2="218" y2="80" stroke="#94a3b8" stroke-width="1.2" stroke-dasharray="3,2" marker-end="url(#pl-ar)"/>
+  <rect x="220" y="124" width="180" height="50" rx="6" fill="#fef2f2" stroke="#dc2626" stroke-width="1.2"/>
+  <text x="310" y="143" font-size="11" font-weight="700" fill="currentColor" text-anchor="middle">gate: empty?</text>
+  <text x="310" y="160" font-size="10" fill="#64748b" text-anchor="middle">yes → sleep 1s, continue</text>
+  <rect x="420" y="124" width="180" height="50" rx="6" fill="#fef2f2" stroke="#dc2626" stroke-width="1.2"/>
+  <text x="510" y="143" font-size="11" font-weight="700" fill="currentColor" text-anchor="middle">gate: all trigger=0?</text>
+  <text x="510" y="160" font-size="10" fill="#64748b" text-anchor="middle">yes (accumulate) → no wake</text>
+  <rect x="620" y="124" width="180" height="50" rx="6" fill="#ecfdf5" stroke="#16a34a" stroke-width="1.5"/>
+  <text x="710" y="143" font-size="11" font-weight="700" fill="currentColor" text-anchor="middle">has trigger=1 ✓</text>
+  <text x="710" y="160" font-size="10" fill="#64748b" text-anchor="middle">our 'ping' falls through</text>
+  <line x1="510" y1="110" x2="510" y2="122" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#pl-ar)"/>
+  <rect x="220" y="190" width="580" height="56" rx="6" fill="#fef3c7" stroke="#ea580c" stroke-width="1.5"/>
+  <text x="510" y="210" font-size="12" font-weight="700" fill="currentColor" text-anchor="middle">markProcessing(ids)   ←  THE CLAIM (key invariant)</text>
+  <text x="510" y="226" font-size="10" fill="#64748b" text-anchor="middle">INSERT OR REPLACE INTO outbound.processing_ack (id, 'processing', NOW())</text>
+  <text x="510" y="238" font-size="10" fill="#94a3b8" text-anchor="middle">claim + progress signal + crash-recovery (clearStaleProcessingAcks at startup)</text>
+  <line x1="190" y1="216" x2="218" y2="216" stroke="#7c3aed" stroke-width="1.4" marker-end="url(#pl-ar)"/>
+  <text x="204" y="210" font-size="9" fill="#7c3aed" text-anchor="end">writes</text>
+  <rect x="220" y="262" width="280" height="46" rx="6" fill="#ffffff" stroke="#cbd5e1"/>
+  <text x="360" y="280" font-size="11" font-weight="600" fill="currentColor" text-anchor="middle">extractRouting(messages)</text>
+  <text x="360" y="296" font-size="10" fill="#64748b" text-anchor="middle">platform_id · channel_type · in_reply_to</text>
+  <rect x="520" y="262" width="280" height="46" rx="6" fill="#ffffff" stroke="#cbd5e1"/>
+  <text x="660" y="280" font-size="11" font-weight="600" fill="currentColor" text-anchor="middle">/clear command split + pre-task gate</text>
+  <text x="660" y="296" font-size="10" fill="#64748b" text-anchor="middle">our 'ping' = no-op (not /clear, not task)</text>
+  <rect x="220" y="324" width="580" height="60" rx="6" fill="#ecfdf5" stroke="#16a34a" stroke-width="1.5"/>
+  <text x="510" y="344" font-size="12" font-weight="700" fill="currentColor" text-anchor="middle">→ hand normalMessages to step 12 formatter</text>
+  <text x="510" y="362" font-size="10" fill="#64748b" text-anchor="middle">poll-loop sleeps after a full provider turn returns (next iteration)</text>
+  <text x="510" y="374" font-size="10" fill="#94a3b8" text-anchor="middle">if all kinds were skipped → sleep POLL_INTERVAL_MS (1000ms)</text>
+</svg>
+<span class="figure-caption">图 T1.21 ｜ poll-loop 一轮：pending query → 3 道 gate（空 / accumulate / trigger）→ markProcessing 写 ack（claim + progress + crash-recovery 三合一）→ 路由抽取 → 命令分流 → 交给 formatter。</span>
+
+<details>
+<summary>ASCII 原版</summary>
+
+```
+inbound.db (RO) ──SELECT──> getPendingMessages(isFirstPoll)
+                              │
+                              ▼
+                      filter kind != 'system'
+                              │
+                ┌─────────────┼──────────────┐
+                ▼             ▼              ▼
+            empty?       all trigger=0?   trigger=1
+            sleep 1s     accumulate         │
+                         (no wake)          ▼
+                                  markProcessing(ids) ──INSERT──> outbound.processing_ack
+                                            │             (claim + progress + recovery)
+                                            ▼
+                                     extractRouting()
+                                            │
+                                            ▼
+                                   [/clear | pre-task gate]
+                                            │
+                                            ▼
+                                  hand to step 12 formatter
+```
+
+</details>
+
 [`runPollLoop()` 第 71-219 行](https://github.com/nanocoai/nanoclaw/blob/0683c6ec589ec0df74c2a3d99f9544127317b490/container/agent-runner/src/poll-loop.ts#L71) 的一轮迭代是这样的：
 
 **5.1 拉候选 pending row**：[`getPendingMessages(isFirstPoll).filter(m => m.kind !== 'system')`](https://github.com/nanocoai/nanoclaw/blob/0683c6ec589ec0df74c2a3d99f9544127317b490/container/agent-runner/src/poll-loop.ts#L73)。
